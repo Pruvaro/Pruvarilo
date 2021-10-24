@@ -132,7 +132,7 @@ subst
   -- ^
   -- The list of substitution 'String's.
   -> String
-subst str subs = percentDetector "" str subs
+subst = percentDetector ""
 
 
 -- AUXILIAR FUNCTIONS
@@ -171,7 +171,7 @@ percentDetector bf (c : c' : aft) subs =
   -- accumulate at the head of the accumulator (causing an
   -- inversion in the list order, which we fix in the end) and
   -- move on, reading the rest.
-  if (c /= '%')
+  if c /= '%'
   then
     percentDetector (c : bf) (c' : aft) subs
   else
@@ -188,7 +188,7 @@ percentDetector bf (c : c' : aft) subs =
         -- just accumulate a single '%' at the top of the
         -- accumulator and continue.
         percentDetector ('%' : bf) aft subs
-      otherwise ->
+      _ ->
         -- Here we ruled out the two special tokens. So,
         -- we either have '%n', for some number 'n', or
         -- '%k%, for some other character %k%. Because 'n'
@@ -205,7 +205,7 @@ percentDetector bf (c : c' : aft) subs =
           -- we munched the number part.
           (numStr, aft') = munchNums "" (c' : aft)
         in
-          if (numStr == "")
+          if numStr == ""
           then
             -- An empty 'numStr' means what follows '%' is
             -- a non-digit character. The special token ones
@@ -244,7 +244,7 @@ percentDetector bf (c : c' : aft) subs =
                         -- Reverse the substitution string
                         -- and prepend it.
                         percentDetector
-                          ((reverse subStr) ++ bf)
+                          (reverse subStr ++ bf)
                           aft'
                           subs
   where
@@ -267,7 +267,7 @@ percentDetector bf (c : c' : aft) subs =
     -- @[]@, since there is nothing left to process.
     munchNums acc [] = (reverse acc, [])
     munchNums acc (k : ks) =
-      if (k `elem` ['0','1','2','3','4','5','6','7','8','9'])
+      if k `elem` ['0','1','2','3','4','5','6','7','8','9']
       then
         -- We found a digit. Accumulate on the head of the
         -- accumulator (so the accumulator will have to be

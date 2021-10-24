@@ -388,7 +388,7 @@ pathInfo path =
     -- 'MaybeT' constructor.
     canonPath <-
       CTM.MaybeT $ UIOE.catchIO
-        ( Just <$> (UIOD.canonicalizePath path) )
+        ( Just <$> UIOD.canonicalizePath path )
         ( \_ -> return Nothing )
 
     -- We can now proceed, assuming that the canonical path
@@ -398,18 +398,15 @@ pathInfo path =
     -- The things to get now from the environment are the
     -- canonical path of the root,
     rootPath <- CTC.lift $ CTR.asks psRootPath
-    
+
     -- And the base names of the Discipline Directories,
     discDirNames <-
       CTC.lift $
-        CTR.asks
-          ( \env -> 
-            map discDirBaseName (disciplineDirectories env)
-          )
+        CTR.asks $ map discDirBaseName . disciplineDirectories
 
     -- And the file extensions for Proof Files,
     proofExtensions <- CTC.lift $ CTR.asks proofFileExtensions
-      
+
     -- We use the environment's 'declarativeToBuild'
     -- to provide us the build name from the declarative
     -- path. So, here, we ask for that function.
@@ -423,7 +420,7 @@ pathInfo path =
     -- 
     -- Starting with the "is it a Proof File?" test.
     CTM.MaybeT $ return $ CM.guard $
-      (SF.takeExtension canonPath) `elem` proofExtensions
+      SF.takeExtension canonPath `elem` proofExtensions
 
     -- Now, we test if the current path descends from some
     -- Discipline Directory.
@@ -462,15 +459,15 @@ pathInfo path =
       -- > path/to/root/Discdir/some/other/stuff
       -- and the return will be
       -- > Just ("Discdir", ["some", "other", "stuff"])
-      pathSuffix 
+      pathSuffix
         :: String
         -> Maybe (String, [String])
       pathSuffix baseName =
-        DL.stripPrefix 
-          (rootPathElements ++ [baseName]) 
+        DL.stripPrefix
+          (rootPathElements ++ [baseName])
           argPathElements
-        >>= Just . (\remElem -> (baseName, remElem))
-        
+        >>= Just . (,) baseName
+
       -- This is another auxiliar function which returns,
       -- if any exists, the first computation of the
       -- first element resulting in a 'Just something'.
@@ -488,7 +485,7 @@ pathInfo path =
         -> Maybe b
       firstJust [] _ = Nothing
       firstJust (x:xs) f =
-        case (f x) of
+        case f x of
           Nothing -> firstJust xs f
           Just y  -> Just y
 
@@ -516,7 +513,7 @@ pathInfo path =
       -- this should work as expected.
       argBaseName :: String
       argBaseName = SF.takeFileName canonPath
-      
+
       -- 
       argParentDir :: FilePath
       argParentDir = SF.takeDirectory canonPath
@@ -527,7 +524,7 @@ pathInfo path =
     -- 'PathInfo' value.
     parentContents <-
       CTM.MaybeT $ UIOE.catchIO
-        ( Just <$> (UIOD.listDirectory argParentDir) )
+        ( Just <$> UIOD.listDirectory argParentDir )
         ( \_ -> return Nothing )
 
     -- Finally, we can check if there is more than one 
@@ -539,25 +536,24 @@ pathInfo path =
     let
       noConflict :: Bool
       noConflict =
-        ( length $ filter
-            ( \s -> 
-              (map DC.toLower s) 
-              == (map DC.toLower argBaseName)
+        length (filter
+            ( \s ->
+              map DC.toLower s
+              == map DC.toLower argBaseName
             )
-            parentContents
-        ) < 2
+            parentContents) < 2
       decPath :: FilePath
       decPath =
-        foldl (\x y -> x ++ "/" ++ y) ".." $ 
-          parentDiscDir : remainingPathElems 
-    
+        foldl (\x y -> x ++ "/" ++ y) ".." $
+          parentDiscDir : remainingPathElems
+
     -- We can then collect everything in a single 'PathInfo'
     -- value. We return it to put it into the correct
     -- monadic wrapping.
     return $
       PathInfo
       { _canonicalPath = canonPath
-      , _housingDiscDirBaseName = parentDiscDir 
+      , _housingDiscDirBaseName = parentDiscDir
         -- For cross-system pattern sake, the separator
         -- between path elements is set to '/', instead
         -- of using the one defined with </>.
@@ -607,7 +603,7 @@ pathInfos path =
     mbCanonPath <-
       CTC.lift $
       UIOE.catchIO
-        ( Just <$> (UIOD.canonicalizePath path) )
+        ( Just <$> UIOD.canonicalizePath path )
         ( \_ -> return Nothing )
 
     -- If we failed to canonicalize the path, we will just
@@ -630,10 +626,9 @@ pathInfos path =
           -- base name is also hidden, we will just leave with
           -- an empty list. Otherwise, we can continue,
           if
-            ( (elem canonPath $ map (root SF.</>) hidePaths)
-              ||
-              (elem (SF.takeBaseName canonPath) hideBase)
-            )
+            elem canonPath (map (root SF.</>) hidePaths)
+            ||
+            (SF.takeBaseName canonPath `elem` hideBase)
           then
             return []
           else
@@ -650,7 +645,7 @@ pathInfos path =
               -- permissions, we will just get back an 
               -- empty list, and the next steps are trivial.
               contents <-
-                CTC.lift $ 
+                CTC.lift $
                   UIOE.catchIO
                     (UIOD.listDirectory path)
                     (\_ -> return [])
@@ -660,9 +655,7 @@ pathInfos path =
               -- list will be empty, and this halts). We then
               -- concat their own lists into a big one.
               rec <-
-                fmap concat $
-                  mapM pathInfos $
-                    map (canonPath SF.</>) contents
+                concat <$> mapM (pathInfos . (canonPath SF.</>)) contents
 
               -- And finally, we see if we were able to
               -- generate a 'pathInfo' for the current file or
@@ -705,7 +698,7 @@ dependentDiscDirs ddBaseName =
     -- We then check if the given base name argument 
     -- corresponds to the base name of some Discipline
     -- Directory. If not, we just return an empty list.
-    if (elem ddBaseName $ map discDirBaseName discDirs)
+    if elem ddBaseName $ map discDirBaseName discDirs
     then
       let
         -- Here we filter the Discipline Directory list,
@@ -714,8 +707,8 @@ dependentDiscDirs ddBaseName =
         -- Discipline Directories.
         accDiscDirs :: [DisciplineDirectory]
         accDiscDirs =
-          filter 
-            (\d -> elem ddBaseName $ accessibleDiscDirs d)
+          filter
+            (elem ddBaseName . accessibleDiscDirs)
             discDirs
       in
         -- In the end, return only their base names.
@@ -778,7 +771,7 @@ relativePathElem path =
 
     -- We will wrap everything in a 'handleIO' due to
     -- the possible exceptions thrown by 'canonicalizePath'.
-    UIOE.handleIO (\e -> return $ Left e) $
+    UIOE.handleIO (return . Left) $
       Right <$> do
         -- Make the provided path canonical.
         path' <- UIOD.canonicalizePath path
@@ -836,7 +829,7 @@ declarativeToAbsPath decPath =
           -- then there are no more characters left in
           -- the list. This finishes the splitting.
           [] -> [bfr]
- 
+
           -- If, instead, there are elements after,
           -- then the first element of 'aft' is the
           -- breaking element. We exclude the breaking
@@ -859,7 +852,7 @@ declarativeToAbsPath decPath =
     -- proof file. We also must replace the @.vo@ with a
     -- @.v@ file extension.
     relPath :: FilePath
-    relPath = 
+    relPath =
       (SF.<.> "v") $ SF.dropExtension $ SF.joinPath pathElem
   in
     -- Append the relative path to the canonical path of

@@ -113,13 +113,13 @@ buildDocDiscDir
   -- The __base name__ (not the full path) of some
   -- Discipline Directory.
   -> CTR.ReaderT
-      ProofSystemConfig 
-      m 
+      ProofSystemConfig
+      m
       (Maybe (Either UIOE.IOException SE.ExitCode))
 buildDocDiscDir discdir = do
   -- Get the list of Discipline Directory base names.
-  discdirs <- 
-    CTR.asks $ (map discDirBaseName) . disciplineDirectories
+  discdirs <-
+    CTR.asks $ map discDirBaseName . disciplineDirectories
 
   -- Also gets the canonical path of the root, since we
   -- might need it later.
@@ -130,7 +130,7 @@ buildDocDiscDir discdir = do
 
   -- Checks if the base name is base name of 
   -- some Discipline Directory.
-  if (discdir `elem` discdirs)
+  if discdir `elem` discdirs
   then do
     -- We will try to get the adapted environment (using
     -- the environment variables set through the in the
@@ -155,7 +155,7 @@ buildDocDiscDir discdir = do
 
         -- Runs the process, but inside a 'handleIO' to
         -- catch any exceptions thrown.
-        fmap Just $ UIOE.handleIO (\e -> return $ Left e) $ do
+        fmap Just $ UIOE.handleIO (return . Left) $ do
           -- We create a new process. The first three
           -- entries of the 4-tuple are 'Maybe Handle's to
           -- the 'stdout', 'stdin', and 'stderr'.

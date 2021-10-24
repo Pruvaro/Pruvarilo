@@ -97,7 +97,7 @@ import qualified System.FilePath as SF
   )
 
 import qualified UnliftIO.Directory as UIOD
-  ( doesFileExist 
+  ( doesFileExist
   , getTemporaryDirectory
   , removeFile
   , renameFile
@@ -161,7 +161,7 @@ isDeclared info =
     -- This 'discDirs' is a '[String]', containing the
     -- base names of the Discipline Directories.
     mapM (\d -> (,) d <$> isDeclaredIn info d) discDirs
-   
+
 -- |
 -- Adds the declarations of a proof file, associated with the
 -- given 'PathInfo' argument, to the project files of all
@@ -260,12 +260,12 @@ removeDeclarations info =
     -- Gets a list of __all__ Discipline Directories,
     -- regardless of their dependency permissions.
     discDirs <-
-      CTR.asks $ (map discDirBaseName) . disciplineDirectories
+      CTR.asks $ map discDirBaseName . disciplineDirectories
 
     -- This 'discDirs' is a '[String]', containing the base
     -- names of all Discipline Directories.
-    mapM 
-      (\d -> (,) d <$> removeDeclarationFrom info d) 
+    mapM
+      (\d -> (,) d <$> removeDeclarationFrom info d)
       discDirs
 
 -- |
@@ -396,7 +396,7 @@ removeSubpaths
   -> CTR.ReaderT
       ProofSystemConfig
       IO
-      ( Either 
+      ( Either
           UIOE.IOException
           [(String, Either UIOE.IOException [String])]
       )
@@ -407,15 +407,15 @@ removeSubpaths path =
 
     -- Gets a list of the base names of every known
     -- Discipline Directory.
-    discDirs <- 
-      CTR.asks $ (map discDirBaseName) . disciplineDirectories
+    discDirs <-
+      CTR.asks $ map discDirBaseName . disciplineDirectories
 
     -- Try to get the relative path elements.
     eitPathElems <- relativePathElem path
 
     -- Check the if this process succeeded.
     case eitPathElems of
-      Left e -> 
+      Left e ->
         -- Canonicalizing the path yielded an exception.
         -- Just return this exception and finish the function.
         return $ Left e
@@ -445,19 +445,17 @@ removeSubpaths path =
               -- '/'. If it does not have, we add.
               prefix :: String
               prefix =
-                if 
-                  (
-                    (SF.takeExtension prefix')
-                    `elem`
-                    proofFileExts
-                  )
+                if
+                  SF.takeExtension prefix'
+                  `elem`
+                  proofFileExts
                 then prefix'
-                else (prefix' ++ "/")
+                else prefix' ++ "/"
             in
               Right <$>
-                mapM 
-                  ( \d -> 
-                    (,) d <$> 
+                mapM
+                  ( \d ->
+                    (,) d <$>
                       removeLine (DL.isPrefixOf prefix) d
                   )
                   discDirs
@@ -478,7 +476,7 @@ previewRemoveSubpaths
   -> CTR.ReaderT
       ProofSystemConfig
       IO
-      ( Either 
+      ( Either
           UIOE.IOException
           [(String, Either UIOE.IOException [String])]
       )
@@ -489,15 +487,15 @@ previewRemoveSubpaths path =
 
     -- Gets a list of the base names of every known
     -- Discipline Directory.
-    discDirs <- 
-      CTR.asks $ (map discDirBaseName) . disciplineDirectories
+    discDirs <-
+      CTR.asks $ map discDirBaseName . disciplineDirectories
 
     -- Try to get the relative path elements.
     eitPathElems <- relativePathElem path
 
     -- Check the if this process succeeded.
     case eitPathElems of
-      Left e -> 
+      Left e ->
         -- Canonicalizing the path yielded an exception.
         -- Just return this exception and finish the function.
         return $ Left e
@@ -527,19 +525,17 @@ previewRemoveSubpaths path =
               -- '/'. If it does not have, we add.
               prefix :: String
               prefix =
-                if 
-                  (
-                    (SF.takeExtension prefix')
-                    `elem`
-                    proofFileExts
-                  )
+                if
+                  SF.takeExtension prefix'
+                  `elem`
+                  proofFileExts
                 then prefix'
-                else (prefix' ++ "/")
+                else prefix' ++ "/"
             in
               Right <$>
-                mapM 
-                  ( \d -> 
-                    (,) d <$> 
+                mapM
+                  ( \d ->
+                    (,) d <$>
                       previewDel (DL.isPrefixOf prefix) d
                   )
                   discDirs
@@ -563,7 +559,7 @@ previewRemoveSubpaths path =
         -- Get the canonical path of the root of the
         -- proof system from the environment.
         root <- CTR.asks psRootPath
-        
+
         -- Get the base name of all project files.
         projFileBaseName <- CTR.asks projectFileName
 
@@ -571,17 +567,17 @@ previewRemoveSubpaths path =
         -- provided Discipline Directory.
         let
           projFilePath :: FilePath
-          projFilePath = 
+          projFilePath =
             root SF.</> discDir SF.</> projFileBaseName
 
         -- Now, we simply wrap everything in a 'handleIO'
         -- to catch possible exceptions.
-        CTC.lift $ UIOE.handleIO (\e -> return $ Left e) $
+        CTC.lift $ UIOE.handleIO (return . Left) $
           Right <$> UIOE.bracket
             (SIO.openFile projFilePath SIO.ReadMode)
-            (SIO.hClose)
+            SIO.hClose
             ( \hdl -> do
-              cnt <- (filter pred) . lines <$>
+              cnt <- filter pred . lines <$>
                 SIO.hGetContents hdl
               UIOE.evaluateDeep cnt
             )
@@ -613,9 +609,9 @@ nonExistentPaths
   -- ^
   -- The base name of the Discipline Directory whose
   -- project file we must check.
-  -> CTR.ReaderT 
-      ProofSystemConfig 
-      IO 
+  -> CTR.ReaderT
+      ProofSystemConfig
+      IO
       (Either UIOE.IOException [FilePath])
 nonExistentPaths discDir =
   let
@@ -625,7 +621,7 @@ nonExistentPaths discDir =
     -- consistent with how 'pathInfo' constructs 
     -- declarative paths.
     isPath :: String -> Bool
-    isPath = DL.isPrefixOf ".." 
+    isPath = DL.isPrefixOf ".."
   in
     do
       -- Get the canonical path of the root.
@@ -637,24 +633,24 @@ nonExistentPaths discDir =
       -- Build the project file's full path.
       let
         projFilePath :: FilePath
-        projFilePath = 
+        projFilePath =
           root SF.</> discDir SF.</> projFileBaseName
 
       -- Since reading the file can cause an 
       -- 'UIOE.IOException' we wrap everything in 
       -- a 'handleIO'.
-      UIOE.handleIO (\e -> return $ Left e) $
+      UIOE.handleIO (return . Left) $
         -- First, we get only the lines in the file which
         -- correspond to paths.
         let
-          paths 
+          paths
             :: CTR.ReaderT ProofSystemConfig IO [FilePath]
           paths =
             CTC.lift $ UIOE.bracket
               (SIO.openFile projFilePath SIO.ReadMode)
-              (SIO.hClose)
+              SIO.hClose
               ( \hdl -> do
-                cnt <- filter isPath <$> lines <$> 
+                cnt <- filter isPath . lines <$>
                   SIO.hGetContents hdl
                 UIOE.evaluateDeep cnt
               )
@@ -662,7 +658,7 @@ nonExistentPaths discDir =
           -- Then we make all those paths (which are
           -- declarative paths) into the absolute paths of
           -- the files they declare.
-          paths' 
+          paths'
             :: CTR.ReaderT ProofSystemConfig IO [FilePath]
           paths' = paths >>= mapM declarativeToAbsPath
 
@@ -672,8 +668,8 @@ nonExistentPaths discDir =
           fileNotExist f = not <$> UIOD.doesFileExist f
           paths''
             :: CTR.ReaderT ProofSystemConfig IO [FilePath]
-          paths'' = 
-            paths' >>= CTC.lift . (CM.filterM fileNotExist)
+          paths'' =
+            paths' >>= CTC.lift . CM.filterM fileNotExist
         in
           -- The only thing left is to wrap up the filtered
           -- absolute paths in the 'Right' constructor.
@@ -716,17 +712,17 @@ allowedDiscDirs info =
     -- Then, we filter the list of all Discipline Directories,
     -- leaving in only those which have dependency permission 
     -- on the one housing our current file.
-    let 
+    let
       filteredDiscDirs =
-        filter 
-          (\d -> elem housingDiscDir $ accessibleDiscDirs d)
+        filter
+          (elem housingDiscDir . accessibleDiscDirs)
           discDirs
 
     -- And, finally we return the names of those Discipline
     -- Directories (and also prepend the name of the housing
     -- Discipline Directory, since self-dependency is always
     -- implied by default).
-    return $ 
+    return $
       housingDiscDir : map discDirBaseName filteredDiscDirs
 
 -- |
@@ -742,9 +738,9 @@ isDeclaredIn
   -- ^
   -- The __base name__ of the Discipline Directory whose
   -- project file we need to check.
-  -> CTR.ReaderT 
-      ProofSystemConfig 
-      IO 
+  -> CTR.ReaderT
+      ProofSystemConfig
+      IO
       (Either UIOE.IOException Bool)
   -- ^
   -- A (monadic) sum-type, since the internal functions for
@@ -783,7 +779,7 @@ isDeclaredIn info discDir =
       -- of the project file,
       let
         projFilePath :: FilePath
-        projFilePath = 
+        projFilePath =
           root SF.</> discDir SF.</> projFileBaseName
 
       -- We can now check that file.
@@ -794,20 +790,19 @@ isDeclaredIn info discDir =
       -- permissions) we will just return the exception.
       CTC.lift $
         UIOE.handleIO
-          (\e -> return $ Left e)
-          ( fmap Right $
-              UIOE.bracket 
+          (return . Left)
+          ( Right <$>
+              UIOE.bracket
                 (SIO.openFile projFilePath SIO.ReadMode)
-                (SIO.hClose)
+                SIO.hClose
                 ( \hdl -> do
-                  x <- 
-                    any (== decPath) 
-                      <$> lines
+                  x <-
+                    (decPath `elem`) . lines
                       <$> SIO.hGetContents hdl
                   UIOE.evaluateDeep x
                   -- return $! x
                 )
-          ) 
+          )
 
 -- |
 -- This function checks if the file associated with the given
@@ -833,9 +828,9 @@ addDeclarationTo
   -- The base name of the Discipline Directory whose project
   -- file should be appened, if it does not already declare
   -- the file whose 'PathInfo' is given as first argument.
-  -> CTR.ReaderT 
-      ProofSystemConfig 
-      IO 
+  -> CTR.ReaderT
+      ProofSystemConfig
+      IO
       (Either UIOE.IOException Bool)
   -- ^
   -- A (monadic) sum type. 
@@ -873,7 +868,7 @@ addDeclarationTo info discDir =
       -- of the project file,
       let
         projFilePath :: FilePath
-        projFilePath = 
+        projFilePath =
           root SF.</> discDir SF.</> projFileBaseName
 
       -- We can now check that file.
@@ -884,17 +879,16 @@ addDeclarationTo info discDir =
       -- permissions) we will just return the exception.
       CTC.lift $
         UIOE.handleIO
-          (\e -> return $ Left e)
+          (return . Left)
           ( fmap Right $ do
               UIOE.bracket
                 (SIO.openFile projFilePath SIO.ReadMode)
-                (SIO.hClose)
+                SIO.hClose
                 ( \hdl -> do
                   -- This checks if the project file already
                   -- contains the declaration to our file.
                   isDeclared <-
-                    any (== decPath) 
-                    <$> lines
+                    (decPath `elem`) . lines
                     <$> SIO.hGetContents hdl
 
                   if isDeclared
@@ -912,11 +906,11 @@ addDeclarationTo info discDir =
                       -- successful we return a 'True', since
                       -- our function call did modify 
                       -- the project file.
-                      appendFile projFilePath 
+                      appendFile projFilePath
                         $ decPath ++ "\n"
                       return True
                 )
-          ) 
+          )
 
 -- |
 -- This function checks if the file associated with the given
@@ -990,7 +984,7 @@ removeDeclarationFrom info discDir =
     onRight (Left x)  = Left x
   in
     onRight <$> removeLine (== declarativePath info) discDir
-  
+
 -- |
 -- This function attempts to remove all lines matching a
 -- given predicate from a project file.
@@ -1032,8 +1026,8 @@ removeLine
   -- ^
   -- The name of the Discipline Directory whose project
   -- file we must edit.
-  -> CTR.ReaderT 
-      ProofSystemConfig 
+  -> CTR.ReaderT
+      ProofSystemConfig
       IO
       (Either UIOE.IOException [String])
 removeLine pred discDir =
@@ -1062,7 +1056,7 @@ removeLine pred discDir =
     -- in the end of the file every time we
     -- process it.
     writeTest handle [l] =
-      if (pred l)
+      if pred l
       then
         return [l]
       else
@@ -1073,24 +1067,24 @@ removeLine pred discDir =
         -- be processed, 'l' would be @""@
         -- (empty string), and another empty
         -- line would be added, and so on.
-        (SIO.hPutStr handle l) >> (return [])
+        SIO.hPutStr handle l >> return []
     -- The remaning case, for lists with more
     -- than 1 element. Here, 'l' is not the
     -- last line of the file.
     writeTest handle (l : ls) =
-      if (pred l)
+      if pred l
       then
         -- Here, we do not write the current line
         -- to the file. Instead, we monadically prepend
         -- the line to the top of the returning list, and
         -- call the function on the rest.
-        (:) l <$> writeTest handle ls 
+        (:) l <$> writeTest handle ls
       else
         -- Here, the current line does not satisfy the
         -- deletion predicate. So, we must write it on
         -- the temporary file, and call the function
         -- on the rest of the provided list.
-        (SIO.hPutStrLn handle l) >> (writeTest handle ls)
+        SIO.hPutStrLn handle l >> writeTest handle ls
   in
     do
       -- Gets the absolute path of the root of the Proof
@@ -1103,7 +1097,7 @@ removeLine pred discDir =
 
       let
         projFilePath :: FilePath
-        projFilePath = 
+        projFilePath =
           root SF.</> discDir SF.</> projFileBaseName
 
       -- We will wrap the entire operation in a 'handleIO'
@@ -1136,8 +1130,8 @@ removeLine pred discDir =
       --   delete the temporary one to free resources.
       (tempFilePath, writeResult) <-
         CTC.lift $ UIOE.handleIO
-          (\e -> return $ ("", Left e))
-          ( 
+          (\e -> return ("", Left e))
+          (
             -- Within the 'IO' monad.
             do
               -- We try to get the temporary file directory,
@@ -1194,17 +1188,15 @@ removeLine pred discDir =
                   -- temporary file, so that we can
                   -- either delete it or use it to
                   -- replace the original file.
-                  (,) tempPath
-                  <$> Right <$>
-                  ( UIOE.bracket
-                      (SIO.openFile projFilePath SIO.ReadMode)
-                      (SIO.hClose)
-                      ( \hdl -> do
-                        cnt <- lines <$> SIO.hGetContents hdl
-                        writeTest tempHandle cnt
-                        -- TEST: Maybe $! cnt?
-                      )
-                  )
+                  (,) tempPath . Right <$>
+                  UIOE.bracket
+                    (SIO.openFile projFilePath SIO.ReadMode)
+                    SIO.hClose
+                    ( \hdl -> do
+                    cnt <- lines <$> SIO.hGetContents hdl
+                    writeTest tempHandle cnt
+                    -- TEST: Maybe $! cnt?
+                    )
                 )
           )
 
@@ -1228,7 +1220,7 @@ removeLine pred discDir =
           -- 'handleIO', and report back the exception.
           CTC.lift $
             UIOE.handleIO
-            (\e -> return $ Left e)
+            (return . Left)
             (
               (
                 case deletions of
@@ -1244,6 +1236,6 @@ removeLine pred discDir =
               )
               -- Either way, we just return back whatever the
               -- list of matches.
-              >> (return $ Right deletions)
+              >> return (Right deletions)
             )
-              
+

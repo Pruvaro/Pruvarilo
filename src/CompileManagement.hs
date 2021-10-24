@@ -264,7 +264,7 @@ buildMakefileIn discDir =
         -- If this fails (because some exception was thrown
         -- and caught internally in 'adaptEnvironment',
         -- the next step will not even be executed.
-        newEnv <- CTE.ExceptT $ adaptEnvironment
+        newEnv <- CTE.ExceptT adaptEnvironment
 
         let
           -- Using @makeCmd@, we can construct a
@@ -282,7 +282,7 @@ buildMakefileIn discDir =
         -- thrown, we will encapsulate it and return.
         CTE.ExceptT $
           UIOE.handleIO
-            (\e -> return $ Left e)
+            (return . Left)
             (
               do
                 -- We create a new process. The first three
@@ -401,7 +401,7 @@ buildMakefileAll =
     -- Gets a list of __all__ Discipline Directories,
     -- regardless of their dependency permissions.
     discDirs <-
-      CTR.asks $ (map discDirBaseName) . disciplineDirectories
+      CTR.asks $ map discDirBaseName . disciplineDirectories
 
     -- Then, we 'mapM' a special function, which will also
     -- include the Discipline Directory's base name in a
@@ -473,7 +473,7 @@ compileProofFile info =
     let
       -- The (absolute) path of the Discipline Directory.
       discDirPath :: FilePath
-      discDirPath = root SF.</> (housingDiscDirBaseName info)
+      discDirPath = root SF.</> housingDiscDirBaseName info
 
     -- Gets the compilation command from the environment.
     compCmd <- CTR.asks compilationCommand
@@ -503,7 +503,7 @@ compileProofFile info =
         -- If this fails (because some exception was thrown
         -- and caught internally in 'adaptEnvironment',
         -- the next step will not even be executed.
-        newEnv <- CTE.ExceptT $ adaptEnvironment
+        newEnv <- CTE.ExceptT adaptEnvironment
 
         let
           -- Using @compCmd@, we can construct a
@@ -524,7 +524,7 @@ compileProofFile info =
         -- any thrown and caught exceptions) or 'Right' (for the
         -- exit code of the compilation command).
         CTE.ExceptT $ UIOE.handleIO
-          (\e -> return $ Left e)
+          (return . Left)
           (
             do
               -- We create a new process. The first three
@@ -577,14 +577,14 @@ adaptEnvironment =
     -- This is an 'IO' process, which may throw exceptions,
     -- so we wrap everything in a 'handleIO'.
     UIOE.handleIO
-      (\e -> return $ Left e)
+      (return . Left)
       (
         -- In the @ReaderT ProofSystemConfig m@ monad.
         do
           -- Get the external environment.
           env <- UIOEn.getEnvironment
 
-          if (coqbin == "")
+          if coqbin == ""
           then
             -- Here we don't need to do anything to the
             -- environment, because the configuration field
@@ -615,7 +615,7 @@ adaptEnvironment =
       -> [(k, v)]
     replOrAdd key val [] = [(key, val)]
     replOrAdd key val ((k, v) : kvs) =
-      if (key == k)
+      if key == k
       then
         (key, val) : kvs
       else

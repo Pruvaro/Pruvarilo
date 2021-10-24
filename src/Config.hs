@@ -8,7 +8,7 @@
 -- the Discipline Directories, and which Discipline 
 -- Directories have access to which proofs.
 module Config
-  ( 
+  (
     -- * General configuration environment
     -- |
     -- The 'ProofSystemConfig' is the general environment
@@ -56,12 +56,6 @@ module Config
 -- IMPORTS
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
-import qualified Control.Monad.Trans.Except as CTE
-  ( ExceptT
-    ( ExceptT
-    )
-  , runExceptT
-  )
 import qualified Control.Monad.Trans.Except as CTE
   ( ExceptT
     ( ExceptT
@@ -118,7 +112,7 @@ import qualified UnliftIO.Exception as UIOE
 data ProofSystemConfig =
   ProofSystemConfig
   { _psRootPath :: FilePath
-  , _disciplineDirectories :: [DisciplineDirectory] 
+  , _disciplineDirectories :: [DisciplineDirectory]
   , _proofFileExtensions :: [String]
   , _nameValidityPredicate :: String -> Bool
   , _declarativeToBuild :: FilePath -> FilePath
@@ -166,8 +160,8 @@ psRootPath = _psRootPath
 -- Discipline Directory are __only allowed to depend__
 -- __on proofs from the \"Mathematics\" Discipline__
 -- __Directory itself__.
-disciplineDirectories 
-  :: ProofSystemConfig -> [DisciplineDirectory] 
+disciplineDirectories
+  :: ProofSystemConfig -> [DisciplineDirectory]
 disciplineDirectories = _disciplineDirectories
 
 -- |
@@ -175,7 +169,7 @@ disciplineDirectories = _disciplineDirectories
 -- 
 -- Currently, there is only one, @".v"@, the extension for
 -- Coq proof files.
-proofFileExtensions 
+proofFileExtensions
   :: ProofSystemConfig -> [String]
 proofFileExtensions = _proofFileExtensions
 
@@ -204,7 +198,7 @@ proofFileExtensions = _proofFileExtensions
 -- [Coq's identifier rules](https://coq.github.io/doc/master/refman/language/core/basic.html#term-command), allowing the
 -- base name of the file to be used as the name of the module
 -- exported by that file.
-nameValidityPredicate 
+nameValidityPredicate
   :: ProofSystemConfig -> String -> Bool
 nameValidityPredicate = _nameValidityPredicate
 
@@ -217,7 +211,7 @@ nameValidityPredicate = _nameValidityPredicate
 -- For the standard value (which applies to Coq @.v@ 
 -- files), we simply substitute the @.v@ file extension
 -- with a @.vo@ file extension.
-declarativeToBuild 
+declarativeToBuild
   :: ProofSystemConfig -> FilePath -> FilePath
 declarativeToBuild = _declarativeToBuild
 
@@ -234,7 +228,7 @@ declarativeToBuild = _declarativeToBuild
 -- with the canonical path of the root (using whatever
 -- separator 'System.FilePath.</>' corresponds to in the
 -- system), produces the canonical path of the directory.
-hiddenPaths 
+hiddenPaths
   :: ProofSystemConfig -> [FilePath]
 hiddenPaths = _hiddenPaths
 
@@ -247,7 +241,7 @@ hiddenPaths = _hiddenPaths
 -- which are not directly related to the Proof System,
 -- but may help it, such as textual explanations, or
 -- scraps/old versions from proofs.
-hiddenBaseNames 
+hiddenBaseNames
   :: ProofSystemConfig -> [String]
 hiddenBaseNames = _hiddenBaseNames
 
@@ -276,7 +270,7 @@ hiddenBaseNames = _hiddenBaseNames
 --
 -- Changing this field will require updating the
 -- @Makefile@s as well.
-projectFileName 
+projectFileName
   :: ProofSystemConfig -> String
 projectFileName = _projectFileName
 
@@ -317,7 +311,7 @@ projectFileName = _projectFileName
 -- @coqc@, @coqdoc@, and @coq_makefile@ are located.
 -- This setting is defined in the @ProofSystemConfig@
 -- environment's 'coqbinPath' field.
-compilationCommand 
+compilationCommand
   :: ProofSystemConfig -> String
 compilationCommand = _compilationCommand
 
@@ -541,14 +535,14 @@ defaultConfig =
       }
     ]
   , _proofFileExtensions = [".v"]
-  , _nameValidityPredicate = (\_ -> False)
-  , _declarativeToBuild = 
-      (\decPath -> (SF.dropExtension decPath) SF.<.> "vo")
+  , _nameValidityPredicate = const False
+  , _declarativeToBuild =
+      \decPath -> SF.dropExtension decPath SF.<.> "vo"
   , _hiddenPaths = ["Templates"]
   , _hiddenBaseNames = ["Scraps"]
   , _projectFileName = "_CoqProject"
   , _compilationCommand = "make --directory=%0 %1"
-  , _makefileBuildCommand = 
+  , _makefileBuildCommand =
       "make --directory=%0 Makefile.coq"
   , _docBuildCommand = "make --directory=%0 html"
   , _coqbinPath = ""
@@ -570,7 +564,7 @@ defaultConfig =
 -- default ones take place instead.
 data ConfigurableFields =
   ConfigurableFields
-  { 
+  {
     -- The __obligatory__ field 'psRootPath', determining
     -- the in-disk location of the root of the proof system.
     set_psRootPath :: FilePath
@@ -622,7 +616,7 @@ data ConfigurableFields =
 -- If the configuration file cannot be found anywhere,
 -- this function returns a (monadic) 'Left'-wrapped
 -- 'String', detailing what went wrong.
-getConf 
+getConf
   :: Maybe FilePath
   -- ^
   -- An optional (that is, use 'Nothing' instead if one does
@@ -630,7 +624,7 @@ getConf
   -- default search order) path where the configuration file
   -- should be looked.
   -> IO (Either String ProofSystemConfig)
-getConf mbPath = 
+getConf mbPath =
   let
     -- First, we decide what path we need to take.
     path :: IO (Either String FilePath)
@@ -655,7 +649,7 @@ getConf mbPath =
         settings <-
           CTE.ExceptT $
             UIOE.handleIO
-              ( \e -> 
+              ( \e ->
                 -- This is the error message shown if we
                 -- cannot read the file for some reason.
                 -- The most likely reason being insufficient
@@ -671,7 +665,7 @@ getConf mbPath =
                   ++ show e
               )
               (
-                flip DIC.parseIniFile configParser <$>
+                flip DIC.parseIniFile configParser .
                   DT.pack <$> readFile configPath
               )
 
@@ -685,14 +679,12 @@ getConf mbPath =
                   "Failure to canonicalize the path of the "
                   ++ "proof system root provided in the "
                   ++ "configuration file: "
-                  ++ (set_psRootPath settings)
+                  ++ set_psRootPath settings
               )
               (
                 Right <$>
-                  (
-                    UIOD.canonicalizePath $ 
-                      set_psRootPath settings
-                  )
+                  UIOD.canonicalizePath (
+                      set_psRootPath settings)
               )
 
         -- The optional fields.
@@ -748,7 +740,7 @@ configParser =
         DIC.fieldMb (DT.pack "compilationCommand")
 
     makeCmd <-
-      DIC.section (DT.pack "COMMANDS") $ 
+      DIC.section (DT.pack "COMMANDS") $
         DIC.fieldMb (DT.pack "buildMakefileCommand")
 
     docCmd <-
@@ -797,7 +789,7 @@ lookupConfigFile =
     lookupXdg =
       -- Wrap everything in a 'handleIO', since those
       -- operations can throw exceptions.
-      UIOE.handleIO (\e -> return $ Left e) $
+      UIOE.handleIO (return . Left) $
         do
           -- Try to get the XDG configuration directory.
           xdgDir <- UIOD.getXdgDirectory UIOD.XdgConfig ""
@@ -808,7 +800,7 @@ lookupConfigFile =
           -- Add the configuration file's base name.
           let
             confPath :: FilePath
-            confPath = 
+            confPath =
               xdgDir' SF.</> "pruvarilo" SF.</> "config.ini"
 
           -- Tests if the configuration file exists.
@@ -817,14 +809,14 @@ lookupConfigFile =
           if hasConfFile
           then return $ Right (True, confPath)
           else return $ Right (False, confPath)
-  
+
 
     -- And here we define a function which checks for
     -- the file in @HOME/.pruvarilo/@.
-    lookupHome 
+    lookupHome
       :: IO (Either UIOE.IOException (Bool, FilePath))
     lookupHome =
-      UIOE.handleIO (\e -> return $ Left e) $
+      UIOE.handleIO (return . Left) $
         do
           -- Try to get the home directory.
           home <- UIOD.getHomeDirectory
@@ -835,7 +827,7 @@ lookupConfigFile =
           -- Add the rest of the path.
           let
             confPath :: FilePath
-            confPath = 
+            confPath =
               home' SF.</> ".pruvarilo" SF.</> "config.ini"
 
           -- Tests if the configuration file exists.
@@ -888,13 +880,13 @@ lookupConfigFile =
                         ++ "  File looked for: "
                         ++ homePath
                     in
-                      return $ Left $ 
+                      return $ Left $
                         xdgNotFound ++ "\n" ++ homeNotFound
                 Left homeExc ->
                   let
                     homeExcMsg :: String
                     homeExcMsg =
-                      ("HOME" SF.</> ".pruvarilo") 
+                      ("HOME" SF.</> ".pruvarilo")
                       ++ ": IOException thrown."
                       ++ "\n"
                       ++ "  Exception: "
@@ -905,7 +897,7 @@ lookupConfigFile =
         Left xdgExc ->
           let
             xdgExcMsg :: String
-            xdgExcMsg = 
+            xdgExcMsg =
               "XDG configuration directory: "
               ++ "IOException thrown."
               ++ "\n"
@@ -931,13 +923,13 @@ lookupConfigFile =
                       ++ "  File looked for: "
                       ++ homePath
                   in
-                    return $ Left $ 
+                    return $ Left $
                       xdgExcMsg ++ "\n" ++ homeNotFound
               Left homeExc ->
                 let
                   homeExcMsg :: String
                   homeExcMsg =
-                    ("HOME" SF.</> ".pruvarilo") 
+                    ("HOME" SF.</> ".pruvarilo")
                     ++ ": IOException thrown."
                     ++ "\n"
                     ++ "  Exception: "
@@ -945,5 +937,5 @@ lookupConfigFile =
                 in
                   return $ Left $
                     xdgExcMsg ++ "\n" ++ homeExcMsg
-  
+
 
