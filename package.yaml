@@ -1,0 +1,58 @@
+name:                Pruvarilo
+version:             0.1.0.0
+github:              "githubuser/Pruvarilo"
+license:             BSD3
+author:              "Ajnaj"
+maintainer:          "90655635+Ajnaj@users.noreply.github.com"
+copyright:           "2021 Ajnaj"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Automatic organizational tool for the Pruvaro proof collection.
+# category:            Development.
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/Ajnaj/Pruvarilo#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- config-ini
+- filepath
+- safe
+- text
+- transformers
+- unliftio
+- unliftio-core
+
+library:
+  source-dirs: src
+
+executables:
+  pruvarilo:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - Pruvarilo
+    - optparse-applicative
+    - prettyprinter
+    - prettyprinter-ansi-terminal
+
+tests:
+  Pruvarilo-test:
+    main:                MyLibTest.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - Pruvarilo
