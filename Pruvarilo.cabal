@@ -6,10 +6,10 @@ cabal-version: 1.12
 
 name:           Pruvarilo
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/Ajnaj/Pruvarilo#readme>
-homepage:       https://github.com/githubuser/Pruvarilo#readme
-bug-reports:    https://github.com/githubuser/Pruvarilo/issues
-author:         Ajnaj
+description:    Please see the README on GitHub at <https://github.com/Pruvaro/Pruvarilo#readme>
+homepage:       https://github.com/Pruvaro/Pruvarilo#readme
+bug-reports:    https://github.com/Pruvaro/Pruvarilo/issues
+author:         Pruvaro
 maintainer:     90655635+Ajnaj@users.noreply.github.com
 copyright:      2021 Ajnaj
 license:        BSD3
@@ -21,7 +21,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/Pruvarilo
+  location: https://github.com/Pruvaro/Pruvarilo
 
 library
   exposed-modules:
