@@ -81,7 +81,6 @@ import Config
   , disciplineDirectories
   , makefileBuildCommand
   , psRootPath
-  , projectFileName
   )
 
 import PathInfo
@@ -98,16 +97,8 @@ import SubstitutionParser
   ( subst
   )
 
-import Control.Monad.IO.Unlift as CMIOU
-  ( MonadUnliftIO
-  )
-
 import qualified Control.Monad.IO.Unlift as CMIOU
   ( MonadUnliftIO
-  )
-
-import qualified Control.Monad.Trans.Class as CTC
-  ( lift
   )
 
 import qualified Control.Monad.Trans.Except as CTE
@@ -119,16 +110,11 @@ import qualified Control.Monad.Trans.Except as CTE
 
 import qualified Control.Monad.Trans.Reader as CTR
   ( ReaderT
-    ( runReaderT
-    )
   , asks
   )
 
 import qualified System.Exit as SE
   ( ExitCode
-    ( ExitSuccess
-    , ExitFailure
-    )
   )
 
 import qualified System.FilePath as SF
@@ -454,7 +440,7 @@ buildMakefileAll =
 -- If the command does not result in an exception, its
 -- exit code will be returned.
 compileProofFile
-  :: MonadUnliftIO m
+  :: CMIOU.MonadUnliftIO m
   => PathInfo
   -- ^
   -- The 'PathInfo' value associated with the proof file we
@@ -557,7 +543,7 @@ compileProofFile info =
 -- internally, they are caught and that is returned instead,
 -- wrapped in the 'Left' constructor.
 adaptEnvironment
-  :: MonadUnliftIO m
+  :: CMIOU.MonadUnliftIO m
   => CTR.ReaderT 
       ProofSystemConfig 
       m 

@@ -107,7 +107,6 @@ import qualified UnliftIO.Exception as UIOE
   ( IOException
   , bracket
   , handleIO
-  , throwIO
   , evaluateDeep
   )
 
@@ -554,7 +553,7 @@ previewRemoveSubpaths path =
           ProofSystemConfig
           IO
           (Either UIOE.IOException [String])
-    previewDel pred discDir =
+    previewDel predicate discDir =
       do
         -- Get the canonical path of the root of the
         -- proof system from the environment.
@@ -577,7 +576,7 @@ previewRemoveSubpaths path =
             (SIO.openFile projFilePath SIO.ReadMode)
             SIO.hClose
             ( \hdl -> do
-              cnt <- filter pred . lines <$>
+              cnt <- filter predicate . lines <$>
                 SIO.hGetContents hdl
               UIOE.evaluateDeep cnt
             )
@@ -887,11 +886,11 @@ addDeclarationTo info discDir =
                 ( \hdl -> do
                   -- This checks if the project file already
                   -- contains the declaration to our file.
-                  isDeclared <-
+                  isDecl <-
                     (decPath `elem`) . lines
                     <$> SIO.hGetContents hdl
 
-                  if isDeclared
+                  if isDecl
                   then
                     -- If it does, we leave returning a 
                     -- 'False', which indicates that our 
@@ -1030,7 +1029,7 @@ removeLine
       ProofSystemConfig
       IO
       (Either UIOE.IOException [String])
-removeLine pred discDir =
+removeLine predicate discDir =
   let
     -- We will define an auxiliar function
     -- which will test each line of the original
@@ -1056,7 +1055,7 @@ removeLine pred discDir =
     -- in the end of the file every time we
     -- process it.
     writeTest handle [l] =
-      if pred l
+      if predicate l
       then
         return [l]
       else
@@ -1072,7 +1071,7 @@ removeLine pred discDir =
     -- than 1 element. Here, 'l' is not the
     -- last line of the file.
     writeTest handle (l : ls) =
-      if pred l
+      if predicate l
       then
         -- Here, we do not write the current line
         -- to the file. Instead, we monadically prepend

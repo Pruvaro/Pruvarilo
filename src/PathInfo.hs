@@ -85,8 +85,6 @@ import qualified Control.Monad.Trans.Maybe as CTM
 
 import qualified Control.Monad.Trans.Reader as CTR
   ( ReaderT
-    ( runReaderT
-    )
   , asks
   )
 

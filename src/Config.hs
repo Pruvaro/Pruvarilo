@@ -89,7 +89,6 @@ import qualified UnliftIO.Directory as UIOD
   , doesFileExist
   , getHomeDirectory
   , getXdgDirectory
-  , makeAbsolute
   )
 
 import qualified UnliftIO.Exception as UIOE
@@ -674,7 +673,7 @@ getConf mbPath =
         root <-
           CTE.ExceptT $
             UIOE.handleIO
-              ( \e ->
+              ( \_ ->
                 return $ Left $
                   "Failure to canonicalize the path of the "
                   ++ "proof system root provided in the "
