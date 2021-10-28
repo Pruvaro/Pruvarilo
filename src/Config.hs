@@ -962,7 +962,7 @@ discDirParser dd = do
   -- the accessible Discipline Directories. In the INI file,
   -- we will use a comma-separated list.
   accDiscDirs <- 
-      DIC.section (DT.pack $ "Discipline Directory: " ++ dd) $
+      DIC.section (DT.pack $ "DISCIPLINE DIRECTORY: " ++ dd) $
       DIC.fieldOf
         (DT.pack "accessibleDiscDirs")
         (DIC.listWithSeparator (DT.pack ",") DIC.string)
