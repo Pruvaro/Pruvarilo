@@ -110,21 +110,21 @@ execDocMode cmo _ =
     -- or with a Discipline Directory, we need to get a path.
     path :: Monad m => CTR.ReaderT ProofSystemConfig m String
     path =
-      case (cmo_actionLocation cmo) of
+      case cmo_actionLocation cmo of
         ActLocPath p -> return p
         ActLocDiscDir dd ->
           -- If we are instead given a Discipline Directory,
           -- we can get its path by prepending the path
           -- to the root of the proof system.
-          (SF.</> dd) <$> CTR.asks psRootPath 
+          (SF.</> dd) <$> CTR.asks psRootPath
   in do
     -- Gets a list of all Discipline Directory base names.
     -- This is used later to test if the input actually
     -- belongs to a Discipline Directory.
     --
     -- > discdirs :: [String]
-    discdirs <- 
-      CTR.asks $ (map discDirBaseName) . disciplineDirectories
+    discdirs <-
+      CTR.asks $ map discDirBaseName . disciplineDirectories
 
     -- Currently, we can only build the documentation of
     -- an entire Discipline Directory.
@@ -145,15 +145,16 @@ execDocMode cmo _ =
         -- caught) when trying to canonicalize the provided
         -- path. We print that error message and stop.
         CTC.lift $ PRT.hPutDoc UIOIO.stderr $
-          ( DS.fromString $
-            "Failure to canonicalize the path "
-            ++ "(Exception thrown)."
-          )
+          DS.fromString
+            ( "Failure to canonicalize the path "
+              ++ "(Exception thrown)."
+            )
           <> P.line
           <>
-          ( P.indent 2 $ DS.fromString $
-            "Exception: " ++ show e
-          )
+          P.indent 2
+            ( DS.fromString $
+                "Exception: " ++ show e
+            )
           <> P.line
       Right Nothing ->
         -- In this case, the provided path was properly
@@ -161,20 +162,20 @@ execDocMode cmo _ =
         -- in the proof system. We report this failure
         -- and also stop.
         CTC.lift $ PRT.hPutDoc UIOIO.stderr $
-          ( DS.fromString $
-            "Failure "
-            ++ "(Path is not a subpath of the proof system)."
-          )
+          DS.fromString
+            ( "Failure "
+              ++ "(Path is not a subpath of the proof system)."
+            )
           <> P.line
       Right (Just []) ->
         -- Here, we were able to get the path elements,
         -- however, the path corresponds exactly to the
         -- root of the proof system.
         CTC.lift $ PRT.hPutDoc UIOIO.stderr $
-          ( DS.fromString $
-            "Failure (Path is not a subpath of a "
-            ++ "Discipline Directory)."
-          )
+          DS.fromString
+            ( "Failure (Path is not a subpath of a "
+              ++ "Discipline Directory)."
+            )
           <> P.line
       Right (Just (p : _)) -> do
         -- Here, we were able to get the path elements, and
@@ -186,14 +187,14 @@ execDocMode cmo _ =
         -- Since the 'False' case is shorter (just print a
         -- message), we will put a 'not' in the 'if' so
         -- that it comes first.
-        if (not $ p `elem` discdirs)
+        if p `notElem` discdirs
         then
           -- Here, 'p' is not a Discipline Directory.
           CTC.lift $ PRT.hPutDoc UIOIO.stderr $
-            ( DS.fromString $
-              "Failure (Path is not a subpath of a "
-              ++ "Discipline Directory)."
-            )
+            DS.fromString
+              ( "Failure (Path is not a subpath of a "
+                ++ "Discipline Directory)."
+              )
             <> P.line
         else do
           -- Here, 'p' is a Discipline Directory.
@@ -203,11 +204,10 @@ execDocMode cmo _ =
           -- continue (respecting the @assume-yes@ flag).
           CTC.lift $ PRT.putDoc $
             DS.fromString "The documentation for the "
-            <> (P.annotate PRT.bold $ DS.fromString p)
-            <> 
-            ( DS.fromString
+            <> P.annotate PRT.bold (DS.fromString p)
+            <>
+            DS.fromString
               " Discipline Directory will be built."
-            )
             <> P.line
           proceedDoc <-
             CTC.lift $ promptYes (cmo_assumeYes cmo) $
@@ -239,36 +239,34 @@ execDocMode cmo _ =
                   -- This case should never happen, because
                   -- we already tested it out.
                   PRT.hPutDoc UIOIO.stderr $
-                    ( DS.fromString $
-                      "Failure (Path is not a subpath of a "
-                      ++ "Discipline Directory)."
-                    )
+                    DS.fromString
+                      ( "Failure (Path is not a subpath of a "
+                        ++ "Discipline Directory)."
+                      )
                     <> P.line
-                    <> 
-                    ( DS.fromString 
+                    <>
+                    DS.fromString
                       "Please report how you got this error."
-                    )
                     <> P.line
                 Just (Left e) ->
                   -- Here, 'p' is a Discipline Directory, but
                   -- while calling the command, some exception
                   -- was thrown (and caught).
                   PRT.hPutDoc UIOIO.stderr $
-                    ( DS.fromString $
-                      "Failure to build the documentation "
-                      ++ "for the "
-                    )
-                    <> (P.annotate PRT.bold $ DS.fromString p)
-                    <> 
-                    ( DS.fromString $
-                      " Discipline Directory "
-                      ++ " (Exception thrown)."
-                    )
+                    DS.fromString
+                      ( "Failure to build the documentation "
+                        ++ "for the "
+                      )
+                    <> P.annotate PRT.bold (DS.fromString p)
+                    <>
+                    DS.fromString
+                      ( " Discipline Directory "
+                        ++ " (Exception thrown)."
+                      )
                     <> P.line
                     <>
-                    ( P.indent 2 $ DS.fromString $
-                      "Exception: " ++ show e
-                    )
+                    P.indent 2
+                      (DS.fromString ("Exception: " ++ show e))
                     <> P.line
                 Just (Right (SE.ExitFailure n)) ->
                   -- Here, 'p' is a Discipline Directory, and the
@@ -276,16 +274,16 @@ execDocMode cmo _ =
                   -- command returned an 'ExitFailure', exiting
                   -- with the exit code 'n'.
                   PRT.hPutDoc UIOIO.stderr $
-                    ( DS.fromString $
-                      "Failure to build the documentation "
-                      ++ "for the "
-                    )
-                    <> (P.annotate PRT.bold $ DS.fromString p)
-                    <> 
-                    ( DS.fromString $
-                      " Discipline Directory"
-                      ++ " (Process exited with " ++ show n ++ ")."
-                    )
+                    DS.fromString
+                      ( "Failure to build the documentation "
+                        ++ "for the "
+                      )
+                    <> P.annotate PRT.bold (DS.fromString p)
+                    <>
+                    DS.fromString
+                      ( " Discipline Directory"
+                        ++ " (Process exited with " ++ show n ++ ")."
+                      )
                     <> P.line
                 Just (Right SE.ExitSuccess) ->
                   -- Finally, here is the case where 'p' is a
@@ -293,13 +291,11 @@ execDocMode cmo _ =
                   -- properly called, and exit successfully.
                   -- In this case, we print a success message.
                   PRT.putDoc $
-                    ( DS.fromString 
+                    DS.fromString
                       "Building documentation for the "
-                    )
-                    <> (P.annotate PRT.bold $ DS.fromString p)
-                    <> (DS.fromString " Discipline Directory: ")
-                    <> 
-                    ( P.annotate (PRT.color PRT.Green) $
-                      DS.fromString "Success."  
-                    )
+                    <> P.annotate PRT.bold (DS.fromString p)
+                    <> DS.fromString " Discipline Directory: "
+                    <>
+                    P.annotate (PRT.color PRT.Green) (
+                      DS.fromString "Success.")
                     <> P.line

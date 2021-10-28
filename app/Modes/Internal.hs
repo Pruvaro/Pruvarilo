@@ -4,7 +4,7 @@
 -- in the @Modes.@ modules. It is very unlikely that any
 -- external user might need to use those functions.
 module Modes.Internal
-  ( 
+  (
     -- * Prompt
     promptYes
 
@@ -14,7 +14,7 @@ module Modes.Internal
   , groupInfosExtraPerDiscDir
 
     -- * Pretty-printing paths
-  , ppPathsFromPathInfo 
+  , ppPathsFromPathInfo
   , ppPathsAndExtra
   , ppPathsFromDecPaths
 
@@ -59,6 +59,11 @@ import qualified Control.Monad.Trans.Class as CTC
 import qualified Control.Monad.Trans.Reader as CTR
   ( ReaderT
   , asks
+  )
+
+import qualified Data.Bifunctor as DB
+  ( bimap
+  , first
   )
 
 import qualified Data.Char as DC
@@ -154,7 +159,7 @@ promptYes _ msg =
     PRT.putDoc msg
     UIOIO.hFlush UIOIO.stdout
     ans <- getLine
-    return ((map DC.toLower ans) `elem` ["", "y", "yes"])
+    return (map DC.toLower ans `elem` ["", "y", "yes"])
 
 
 -- ADJUSTING OUTPUT VALUE FORMAT
@@ -182,9 +187,9 @@ adjustOutputFormat
   -> (a -> f [(b, c)])
   -> f [ ( b , [(a, c)] ) ]
 adjustOutputFormat [] _ = pure []
-adjustOutputFormat (x : xs) g = 
+adjustOutputFormat (x : xs) g =
   addMap
-  <$> ((makeMap x) <$> (g x))
+  <$> (makeMap x <$> g x)
   <*> adjustOutputFormat xs g
   where
     -- This function produces the map-like structure we
@@ -197,7 +202,7 @@ adjustOutputFormat (x : xs) g =
     makeMap _ [] = []
     makeMap a ( (b, c) : ys ) =
       addSingleEntry (b, [(a, c)]) $ makeMap a ys
-        
+
 
     -- This function combines two of the map-like structures
     -- we want to produce.
@@ -218,7 +223,7 @@ adjustOutputFormat (x : xs) g =
       -> [ (b, [(a, c)]) ]
     addSingleEntry (b, l) [] = [(b, l)]
     addSingleEntry (b, l) ( (b', l') : zs ) =
-      if (b == b')
+      if b == b'
       then (b, l ++ l') : zs
       else (b', l') : addSingleEntry (b, l) zs
 
@@ -231,8 +236,8 @@ groupInfosPerDiscDir
   -> CTR.ReaderT ProofSystemConfig m [(String, [PathInfo])]
 groupInfosPerDiscDir infos = do
   -- Gets the list of all Discipline Directory base names.
-  discdirs <- CTR.asks $ 
-      (map discDirBaseName) . disciplineDirectories
+  discdirs <- CTR.asks $
+      map discDirBaseName . disciplineDirectories
 
   -- We map a function which takes a Discipline Directory
   -- base name, and produces the 2-tuple with its base name
@@ -251,14 +256,14 @@ groupInfosPerDiscDir infos = do
 groupInfosExtraPerDiscDir
   :: Monad m
   => [(PathInfo, a)]
-  -> CTR.ReaderT 
-      ProofSystemConfig 
-      m 
+  -> CTR.ReaderT
+      ProofSystemConfig
+      m
       [(String, [(PathInfo, a)])]
 groupInfosExtraPerDiscDir infoExtras = do
   -- Gets the list of all Discipline Directory base names.
   discdirs <- CTR.asks $
-    (map discDirBaseName) . disciplineDirectories
+    map discDirBaseName . disciplineDirectories
 
   -- Maps over the list of all Discipline Directories
   -- a function that takes a Discipline Directory,
@@ -268,7 +273,7 @@ groupInfosExtraPerDiscDir infoExtras = do
   return $ map
     ( \dd ->
       ( dd
-      , filter 
+      , filter
           ((== dd) . housingDiscDirBaseName . fst)
           infoExtras
       )
@@ -320,7 +325,7 @@ ppPathsFromPathInfo infos mbClr =
     do
       -- Get the root of the proof system.
       root <- CTR.asks psRootPath
-      
+
       let
         -- Make the paths relative to the root. Notice that
         -- this does not fail, and, if the paths are not
@@ -330,7 +335,7 @@ ppPathsFromPathInfo infos mbClr =
 
       -- Group all paths and, if a colour was provided, 
       -- colour them with that colour.
-      return $ 
+      return $
         case mbClr of
           Nothing -> P.vsep $ map DS.fromString relPaths
           Just clr ->
@@ -390,24 +395,24 @@ ppPathsAndExtra infoExtras toDoc mbClr =
   let
     -- Gets only the canonical paths of the 'PathInfo's 
     -- (and also their associated exceptions).
-    canPathExtras = 
-      map (\(i, e) -> (canonicalPath i, e)) infoExtras
+    canPathExtras =
+      map (DB.first canonicalPath) infoExtras
   in do
     -- Get the root of the proof system.
     root <- CTR.asks psRootPath
 
     let
       -- 
-      relPathExtras = 
-        map 
-          (\(p, e) -> (SF.makeRelative root p, e))
+      relPathExtras =
+        map
+          (DB.first (SF.makeRelative root))
           canPathExtras
 
       -- 
       ppPair (p, e) =
         ( case mbClr of
             Nothing -> DS.fromString p
-            Just clr -> 
+            Just clr ->
               P.annotate (PRT.color clr) $ DS.fromString p
         ) <> toDoc e
 
@@ -479,7 +484,7 @@ data DeclarationStatus =
 pathInfoToDecStatus
   :: PathInfo
   -> CTR.ReaderT ProofSystemConfig IO DeclarationStatus
-pathInfoToDecStatus info = 
+pathInfoToDecStatus info =
   let
     -- This auxiliar function takes a list of tuples,
     -- where the second entry is an @Either@, and 
@@ -533,7 +538,7 @@ pathInfoToDecStatus info =
         -- isMent    :: [String]
         -- isNotMent :: [String]
         (isMent, isNotMent) =
-          (\(x, y) -> ( map fst x , map fst y )) $
+          DB.bimap (map fst) (map fst) $
             DL.partition snd succs
 
       -- Finally, we combine all those lists into the
@@ -591,7 +596,7 @@ decStatus infos =
   -- So, by getting the entire list of Discipline Directories
   -- from the environment, we can simply return the mapping
   -- of the that function and finish.
-  CTR.asks ((map discDirBaseName) . disciplineDirectories)
+  CTR.asks (map discDirBaseName . disciplineDirectories)
   >>= mapM decStatusPerDD
   where
     -- The 'DeclarationStatus' value associated with the
@@ -604,13 +609,13 @@ decStatus infos =
     -- associated declaration status, in order to quickly
     -- access that information and discriminate between
     -- 'PathInfo's in a simpler way.
-    decs 
-      :: CTR.ReaderT 
-          ProofSystemConfig 
-          IO 
+    decs
+      :: CTR.ReaderT
+          ProofSystemConfig
+          IO
           [(PathInfo, DeclarationStatus)]
     decs = mapM (\i -> (,) i <$> pathInfoToDecStatus i) infos
-    
+
     -- This function produces the individual entry in the
     -- returning list. It takes as an argument the base
     -- name of the Discipline Directory.
@@ -624,7 +629,7 @@ decStatus infos =
           , [PathInfo]
           , [(PathInfo, UIOE.IOException)]
           )
-    decStatusPerDD dd = 
+    decStatusPerDD dd =
       do
         piDs <- decs
         let
@@ -639,7 +644,7 @@ decStatus infos =
           -- The second entry are the 'PathInfo's of the
           -- declared files.
           declared :: [PathInfo]
-          declared = 
+          declared =
             map fst $ filter
               (\(_, dec) -> elem dd $ ds_shouldBeIs dec)
               piDs
@@ -647,7 +652,7 @@ decStatus infos =
           -- The third entry contains the 'PathInfo's of
           -- the not declared files.
           notDeclared :: [PathInfo]
-          notDeclared = 
+          notDeclared =
             map fst $ filter
               (\(_, dec) -> elem dd $ ds_shouldBeIsNot dec)
               piDs
@@ -669,9 +674,8 @@ decStatus infos =
             -- matches the predicate, that being
             -- 'dd' is a name in the list of fails (and
             -- each fail is paired with its exception).
-            case 
-              ( DL.find ((dd ==) . fst) $ ds_shouldBeFail ds
-              )
+            case
+              DL.find ((dd ==) . fst) $ ds_shouldBeFail ds
             of
               Nothing -> failDeclaredAux xs
               Just (_, exc) -> (i, exc) : failDeclaredAux xs
@@ -704,11 +708,11 @@ decStatus infos =
 putRebuildMakefiles :: CTR.ReaderT ProofSystemConfig IO ()
 putRebuildMakefiles = do
   -- Output a message explaining what will happen.
-  CTC.lift $ PRT.putDoc $ 
+  CTC.lift $ PRT.putDoc $
     P.line
     <> DS.fromString "Rebuilding CoqMakefiles:"
     <> P.line
-    
+
   -- > mkfBuildRes 
   -- >  :: [(String, Either IOException ExitCode)]
   mkfBuildRes <- buildMakefileAll
@@ -718,7 +722,7 @@ putRebuildMakefiles = do
     <> P.line
     <> DS.fromString "CoqMakefile rebuild results:"
     <> P.line
-    <> (P.indent 2 $ P.vsep $ ppMkfBuild mkfBuildRes)
+    <> P.indent 2 (P.vsep $ ppMkfBuild mkfBuildRes)
     <> P.line
   where
     -- An auxiliar function to pretty-print the
@@ -728,26 +732,25 @@ putRebuildMakefiles = do
       -> [P.Doc PRT.AnsiStyle]
     ppMkfBuild [] = []
     ppMkfBuild ((dd, Right SE.ExitSuccess) : xs) =
-      ( ( P.annotate PRT.bold $
-            DS.fromString $ dd ++ ":"
-        ) 
-        <+> 
-        ( P.annotate (PRT.color PRT.Green) $
-            DS.fromString "Success."
-        )
+      ( P.annotate PRT.bold
+          ( DS.fromString $ dd ++ ":"
+          )
+        <+>
+        P.annotate (PRT.color PRT.Green)
+          ( DS.fromString "Success."
+          )
       ) : ppMkfBuild xs
     ppMkfBuild ((dd, Right (SE.ExitFailure n)) : xs) =
-      ( ( P.annotate PRT.bold $
-            DS.fromString $ dd ++ ":"
-        ) 
-        <+> 
-        ( DS.fromString $ 
-          "Failure (process returned " ++ show n ++ ")."
-        )
+      ( P.annotate PRT.bold
+          ( DS.fromString $ dd ++ ":"
+          )
+        <+>
+        DS.fromString
+          ( "Failure (process returned " ++ show n ++ ")."
+          )
       ) : ppMkfBuild xs
     ppMkfBuild ((dd, Left e) : xs) =
-      ( ( P.annotate PRT.bold $
-            DS.fromString $ dd ++ ": "
-        ) 
-        <+> (DS.fromString $ "Exception:" ++ show e)
+      ( P.annotate PRT.bold
+          (DS.fromString $ dd ++ ": ")
+        <+> DS.fromString ("Exception:" ++ show e)
       ) : ppMkfBuild xs

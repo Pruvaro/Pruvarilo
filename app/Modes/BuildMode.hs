@@ -118,13 +118,13 @@ execBuildMode cmo _ =
     -- or with a Discipline Directory, we need to get a path.
     path :: Monad m => CTR.ReaderT ProofSystemConfig m String
     path =
-      case (cmo_actionLocation cmo) of
+      case cmo_actionLocation cmo of
         ActLocPath p -> return p
         ActLocDiscDir dd ->
           -- If we are instead given a Discipline Directory,
           -- we can get its path by prepending the path
           -- to the root of the proof system.
-          (SF.</> dd) <$> CTR.asks psRootPath 
+          (SF.</> dd) <$> CTR.asks psRootPath
   in do
     -- Recurse into the given path and get build 'PathInfo'
     -- values for all the proof files it finds.
@@ -182,7 +182,7 @@ execBuildMode cmo _ =
       -- >        , [(PathInfo, Either IOException ExitCode)]
       -- >        )
       -- >      ]
-      buildRes <- 
+      buildRes <-
         groupInfosExtraPerDiscDir =<< buildShowName infos
 
       -- Informs that the building results will be printed.
@@ -221,9 +221,9 @@ execBuildMode cmo _ =
         -- Print everything, indenting the name 2 spaces and
         -- the list in 4 spaces.
         CTC.lift $ PRT.putDoc $
-          (P.indent 2 ddDoc)
+          P.indent 2 ddDoc
           <> P.line
-          <> (P.indent 4 infosDoc)
+          <> P.indent 4 infosDoc
           <> P.line
         -- Recurse.
         putToBeBuilt xs
@@ -236,7 +236,7 @@ execBuildMode cmo _ =
     -- (provided by the 'compileProofFile' function).
     buildShowName
       :: [PathInfo]
-      -> CTR.ReaderT 
+      -> CTR.ReaderT
           ProofSystemConfig
           IO
           [(PathInfo, Either UIOE.IOException SE.ExitCode)]
@@ -251,11 +251,10 @@ execBuildMode cmo _ =
         relPath = SF.makeRelative root $ canonicalPath i
       -- Prints the relative path in yellow, followed
       -- by a ":" and a line break.
-      CTC.lift $ PRT.putDoc $ 
+      CTC.lift $ PRT.putDoc $
         P.line
-        <> (P.annotate (PRT.color PRT.Yellow) $ 
-            DS.fromString $ relPath ++ ":"
-           )
+        <> P.annotate (PRT.color PRT.Yellow)
+            (DS.fromString $ relPath ++ ":")
         <> P.line
       -- Builds the file.
       -- compRes :: Either IOException ExitCode
@@ -283,33 +282,29 @@ execBuildMode cmo _ =
           case eit of
             Left exc ->
               PRT.hPutDoc UIOIO.stderr $ P.indent 4 $
-                ( P.annotate (PRT.color PRT.Yellow) $
-                  DS.fromString relPath'
-                )
+                P.annotate (PRT.color PRT.Yellow)
+                  (DS.fromString relPath')
                 <> DS.fromString " (Exception): "
-                <> (DS.fromString $ show exc)
+                <> DS.fromString (show exc)
                 <> P.line
             Right (SE.ExitFailure n) ->
               PRT.hPutDoc UIOIO.stderr $ P.indent 4 $
-                ( P.annotate (PRT.color PRT.Yellow) $
-                  DS.fromString relPath'
-                )
-                <> (DS.fromString $ 
-                    " (Failure): Process exit with "
-                    ++ show n
-                   )
+                P.annotate (PRT.color PRT.Yellow)
+                  (DS.fromString relPath')
+                <> DS.fromString
+                    ( " (Failure): Process exit with "
+                      ++ show n
+                    )
                 <> P.line
             Right SE.ExitSuccess ->
               PRT.putDoc $ P.indent 4 $
-                ( P.annotate (PRT.color PRT.Yellow) $
-                  DS.fromString $ relPath'
-                )
+                P.annotate (PRT.color PRT.Yellow)
+                  (DS.fromString relPath')
                 <> DS.fromString ": "
-                <> (P.annotate (PRT.color PRT.Green) $
-                    DS.fromString "Success"
-                   )
+                <> P.annotate (PRT.color PRT.Green)
+                    (DS.fromString "Success")
                 <> P.line
-      
+
     -- We now define a function that prints the building
     -- summary for all files.
     putBuildRes
@@ -327,7 +322,7 @@ execBuildMode cmo _ =
     putBuildRes ((dd, l) : xs) = do
       -- Print the name of the Discipline Directory.
       CTC.lift $ PRT.putDoc $ P.indent 2 $
-        (P.annotate PRT.bold $ DS.fromString dd)
+        P.annotate PRT.bold (DS.fromString dd)
         <> P.line
       -- Prints the targets build information using 
       -- the function 'putInfoAndBuildRes'.

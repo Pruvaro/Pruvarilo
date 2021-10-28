@@ -103,13 +103,13 @@ execRemoveMode cmo _ =
     -- or with a Discipline Directory, we need to get a path.
     path :: Monad m => CTR.ReaderT ProofSystemConfig m String
     path =
-      case (cmo_actionLocation cmo) of
+      case cmo_actionLocation cmo of
         ActLocPath p -> return p
         ActLocDiscDir dd ->
           -- If we are instead given a Discipline Directory,
           -- we can get its path by prepending the path
           -- to the root of the proof system.
-          (SF.</> dd) <$> CTR.asks psRootPath 
+          (SF.</> dd) <$> CTR.asks psRootPath
   in do
     -- Try to get the preview of the deletion results.
     -- > eitPreview 
@@ -128,9 +128,10 @@ execRemoveMode cmo _ =
           canonicalizeFail =
             DS.fromString "Failure to canonicalize path."
             <> P.line
-            <> ( P.indent 2 $ DS.fromString $
-                  "Exception: " ++ show exc
-               )
+            <> P.indent 2
+                 ( DS.fromString $
+                   "Exception: " ++ show exc
+                 )
             <> P.line
         in
           CTC.lift $ PRT.hPutDoc UIOIO.stderr canonicalizeFail
@@ -144,11 +145,12 @@ execRemoveMode cmo _ =
         --   a list of all declarative paths that will be
         --   removed from the the Discipline Directory's
         --   project file.
-        CTC.lift $ PRT.putDoc $ 
-          ( DS.fromString $
-              "The following declarative paths will be  "
+        CTC.lift $ PRT.putDoc $
+          DS.fromString
+            ( "The following declarative paths will be  "
               ++ "removed from the project files: "
-          ) <> P.line
+            )
+          <> P.line
         CTC.lift $ putPrevList preview
         CTC.lift $ PRT.putDoc P.line
 
@@ -176,16 +178,17 @@ execRemoveMode cmo _ =
             Left exc ->
               -- This case should never happen.
               CTC.lift $ PRT.hPutDoc UIOIO.stderr $
-                ( DS.fromString $
-                  "Failure to canonicalize the path. "
-                  ++ "This error should not have "
-                  ++ "happned, please report it."         
-                )
+                DS.fromString
+                  ( "Failure to canonicalize the path. "
+                    ++ "This error should not have "
+                    ++ "happned, please report it."
+                  )
                 <> P.line
-                <> 
-                ( P.indent 2 $ DS.fromString $
-                  "Exception: " ++ show exc
-                )
+                <>
+                P.indent 2
+                  ( DS.fromString $
+                    "Exception: " ++ show exc
+                  )
             Right res -> do
               -- A few line breaks for spacing.
               CTC.lift $ PRT.putDoc $ P.line <> P.line
@@ -193,9 +196,8 @@ execRemoveMode cmo _ =
               -- Prints a message explaining the result
               -- list output,
               CTC.lift $ PRT.putDoc $
-                ( DS.fromString $
-                    "Project file editing results: "
-                )
+                DS.fromString
+                  "Project file editing results: "
                 <> P.line
 
               -- Prints the result list with the auxiliar
@@ -224,11 +226,12 @@ execRemoveMode cmo _ =
     -- Exception case.
     putPrevList ((dd, Left exc) : xs) = do
       PRT.hPutDoc UIOIO.stderr $ P.indent 2 $
-        (P.annotate PRT.bold $ DS.fromString dd)
+        P.annotate PRT.bold (DS.fromString dd)
         <> P.line
-        <> ( P.indent 2 $ DS.fromString $ "Exception: "
-              ++ show exc
-           )
+        <> P.indent 2
+             ( DS.fromString $ "Exception: "
+               ++ show exc
+             )
         <> P.line
       putPrevList xs
     -- No deletion case.
@@ -237,17 +240,16 @@ execRemoveMode cmo _ =
     putPrevList ((dd, Right l) : xs) = do
       -- putStrLn $ "This is my list: " ++ show l
       PRT.putDoc $ P.indent 2 $
-        (P.annotate PRT.bold $ DS.fromString dd)
+        P.annotate PRT.bold (DS.fromString dd)
         <> P.line
-        <> ( P.indent 2 $ ppPathsFromDecPaths l $ 
-              Just PRT.Red
-           )
+        <> P.indent 2
+             (ppPathsFromDecPaths l $ Just PRT.Red)
         <> P.line
       putPrevList xs
 
     -- A similar function to 'putPrevList', but this
     -- time, to show the results.
-    putResList 
+    putResList
       :: [(String, Either UIOE.IOException [String])]
       -> IO ()
     -- Base case.
@@ -255,11 +257,10 @@ execRemoveMode cmo _ =
     -- Exception found case.
     putResList ((dd, Left exc) : xs) = do
       PRT.hPutDoc UIOIO.stderr $ P.indent 2 $
-        (P.annotate PRT.bold $ DS.fromString dd)
+        P.annotate PRT.bold (DS.fromString dd)
         <> P.line
-        <> ( P.indent 2 $ DS.fromString $ "Exception: "
-              ++ show exc
-           )
+        <> P.indent 2
+             (DS.fromString $ "Exception: " ++ show exc)
         <> P.line
       putPrevList xs
     -- If no exception was found, but the deletion list
@@ -269,11 +270,10 @@ execRemoveMode cmo _ =
     -- in that file, print "Success".
     putResList ((dd, Right _) : xs) = do
       PRT.putDoc $ P.indent 2 $
-        (P.annotate PRT.bold $ DS.fromString dd)
+        P.annotate PRT.bold (DS.fromString dd)
         <> DS.fromString ": "
-        <> (P.annotate (PRT.color PRT.Green) $
-            DS.fromString "Success"
-           )
+        <> P.annotate (PRT.color PRT.Green)
+            (DS.fromString "Success")
         <> P.line
       putResList xs
-    
+
