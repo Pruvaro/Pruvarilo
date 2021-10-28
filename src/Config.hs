@@ -605,11 +605,19 @@ namePredicate
   -> Bool
 namePredicate [] = False -- Empty names are not allowed.
 namePredicate name@(x : _)
-  | not (DC.isAsciiUpper x)    = False
-  | length name > 250          = False
-  | not (all isValidChar name) = False
-  | otherwise                  = True
+  | not (DC.isAsciiUpper x)         = False
+  | length name > 250               = False
+  | not (all isValidChar noExtName) = False
+  | otherwise                       = True
   where
+    -- Regarding the character checking predicates, we
+    -- must discard the extension, since '.' is not an
+    -- allowed character, but it is the extension
+    -- separator. We use System.FilePath.dropExtension
+    -- for this purpose.
+    noExtName :: FilePath
+    noExtName = SF.dropExtension name 
+
     -- Only returns true if the character is
     -- ASCII, alphanumeric or an underscore.
     isValidChar :: Char -> Bool
