@@ -62,10 +62,11 @@ import qualified Control.Monad.Trans.Except as CTE
     )
   , runExceptT
   )
-import qualified System.FilePath as SF
-  ( (<.>)
-  , (</>)
-  , dropExtension
+
+import qualified Data.Char as DC
+  ( isAlphaNum
+  , isAscii
+  , isAsciiUpper
   )
 
 import qualified Data.Ini.Config as DIC
@@ -97,6 +98,12 @@ import qualified UnliftIO.Directory as UIOD
 import qualified UnliftIO.Exception as UIOE
   ( IOException
   , handleIO
+  )
+
+import qualified System.FilePath as SF
+  ( (<.>)
+  , (</>)
+  , dropExtension
   )
 
 
@@ -574,7 +581,7 @@ defaultConfig =
       }
     ]
   , _proofFileExtensions = [".v"]
-  , _nameValidityPredicate = const False
+  , _nameValidityPredicate = namePredicate
   , _declarativeToBuild =
       \decPath -> SF.dropExtension decPath SF.<.> "vo"
   , _hiddenPaths = ["Templates"]
@@ -586,6 +593,30 @@ defaultConfig =
   , _docBuildCommand = "make --directory=%0 html"
   , _coqbinPath = ""
   }
+
+-- |
+-- This is an internal function, meant to be used as
+-- the default configuration's nameValiditypredicate
+-- field. It is implemented this way as to avoid
+-- filling the 'defaultConfig' definition with a
+-- large lambda function.
+namePredicate
+  :: String
+  -> Bool
+namePredicate [] = False -- Empty names are not allowed.
+namePredicate name@(x : _)
+  | not (DC.isAsciiUpper x)    = False
+  | length name > 250          = False
+  | not (all isValidChar name) = False
+  | otherwise                  = True
+  where
+    -- Only returns true if the character is
+    -- ASCII, alphanumeric or an underscore.
+    isValidChar :: Char -> Bool
+    isValidChar c
+      | not (DC.isAscii c) = False
+      | c == '_'           = True
+      | otherwise          = DC.isAlphaNum c
 
 -- READING CONFIGURATIONS FROM THE CONFIG FILE
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
