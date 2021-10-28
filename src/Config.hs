@@ -72,8 +72,11 @@ import qualified Data.Ini.Config as DIC
   ( IniParser
   , field
   , fieldMb
+  , fieldOf
+  , listWithSeparator
   , parseIniFile
   , section
+  , string
   )
 
 import qualified Data.Text as DT
@@ -159,6 +162,12 @@ psRootPath = _psRootPath
 -- Discipline Directory are __only allowed to depend__
 -- __on proofs from the \"Mathematics\" Discipline__
 -- __Directory itself__.
+--
+-- The known Discipline Directories should be described in
+-- the structure file (a file named @structure.ini@,
+-- located directly under the root of the proof system.).
+-- See that file and its documentation for information
+-- regarding how to declare the Discipline Directories.
 disciplineDirectories
   :: ProofSystemConfig -> [DisciplineDirectory]
 disciplineDirectories = _disciplineDirectories
@@ -168,6 +177,16 @@ disciplineDirectories = _disciplineDirectories
 -- 
 -- Currently, there is only one, @".v"@, the extension for
 -- Coq proof files.
+--
+-- This field __cannot__ be set using any configuration
+-- (i.e. @config.ini@ or @structure.ini@ files), since
+-- each new extension might require a different treatment
+-- for how the file is declared, how its object files are
+-- listed in the project file, and how it is compiled.
+-- Those functionalities would have to be written into
+-- @pruvarilo@ by themselves, so it does not make sense
+-- to delegate the list of proof file extensions to
+-- external configuration.
 proofFileExtensions
   :: ProofSystemConfig -> [String]
 proofFileExtensions = _proofFileExtensions
@@ -197,6 +216,9 @@ proofFileExtensions = _proofFileExtensions
 -- [Coq's identifier rules](https://coq.github.io/doc/master/refman/language/core/basic.html#term-command), allowing the
 -- base name of the file to be used as the name of the module
 -- exported by that file.
+-- 
+-- Being a function, this field cannot be set using external
+-- configuration files (like @config.ini@ or @structure.ini@).
 nameValidityPredicate
   :: ProofSystemConfig -> String -> Bool
 nameValidityPredicate = _nameValidityPredicate
@@ -210,6 +232,9 @@ nameValidityPredicate = _nameValidityPredicate
 -- For the standard value (which applies to Coq @.v@ 
 -- files), we simply substitute the @.v@ file extension
 -- with a @.vo@ file extension.
+-- 
+-- Being a function, this field cannot be set using external
+-- configuration files (like @config.ini@ or @structure.ini@).
 declarativeToBuild
   :: ProofSystemConfig -> FilePath -> FilePath
 declarativeToBuild = _declarativeToBuild
@@ -227,6 +252,11 @@ declarativeToBuild = _declarativeToBuild
 -- with the canonical path of the root (using whatever
 -- separator 'System.FilePath.</>' corresponds to in the
 -- system), produces the canonical path of the directory.
+--
+-- This field is an __obligatory__ field of the
+-- @GENERAL SETTINGS@ section of the @structure.ini@ file.
+-- See that file and its documentation for more information
+-- in how to declare hidden paths.
 hiddenPaths
   :: ProofSystemConfig -> [FilePath]
 hiddenPaths = _hiddenPaths
@@ -240,6 +270,11 @@ hiddenPaths = _hiddenPaths
 -- which are not directly related to the Proof System,
 -- but may help it, such as textual explanations, or
 -- scraps/old versions from proofs.
+--
+-- This field is an __obligatory__ field of the
+-- @GENERAL SETTINGS@ section of the @structure.ini@ file.
+-- See that file and its documentation for more information
+-- in how to declare hidden base names.
 hiddenBaseNames
   :: ProofSystemConfig -> [String]
 hiddenBaseNames = _hiddenBaseNames
@@ -269,6 +304,11 @@ hiddenBaseNames = _hiddenBaseNames
 --
 -- Changing this field will require updating the
 -- @Makefile@s as well.
+--
+-- This field is an __obligatory__ field of the
+-- @GENERAL SETTINGS@ section of the @structure.ini@ file.
+-- See that file and its documentation for more information
+-- on how to define/change the project file name.j
 projectFileName
   :: ProofSystemConfig -> String
 projectFileName = _projectFileName
@@ -561,8 +601,8 @@ defaultConfig =
 -- obligatory fields, and the user might wish to just
 -- omit them from the configuration file, which makes the
 -- default ones take place instead.
-data ConfigurableFields =
-  ConfigurableFields
+data ConfigFileFields =
+  ConfigFileFields
   {
     -- The __obligatory__ field 'psRootPath', determining
     -- the in-disk location of the root of the proof system.
@@ -587,6 +627,46 @@ data ConfigurableFields =
     -- in-disk location of the directory containing the 
     -- @coqc@, @coqdoc@ and @coq_makefile@ binary executables.
   , set_coqbinPath :: Maybe FilePath
+  } deriving Show
+
+-- |
+-- This is an internal data type, used as an intermediate
+-- for the structure file parser.
+--
+-- The fields in this record type contain only the
+-- configuration fields of a 'ProofSystemConfig' that are
+-- to be set up using the structure file.
+data StructureFileFields =
+  StructureFileFields
+  {
+    -- |
+    -- The __obligatory__ field 'disciplineDirectories',
+    -- determining a list of Discipline Directories.
+    -- The way those directories are specified is
+    -- explained in the structure file documentation.
+    set_disciplineDirectories :: [DisciplineDirectory]
+
+    -- |
+    -- The __obligatory__ field 'hiddenPaths', determining
+    -- a list of paths (all relative to the root of the
+    -- proof system) that should not be recursed into
+    -- when looking for new files to add.
+  , set_hiddenPaths :: [FilePath]
+    
+    -- |
+    -- The __obligatory__ field 'hiddenBaseNames',
+    -- determining a list of base names of directories
+    -- that, wherever they are, should not be recursed into
+    -- when searching for new proof files.
+  , set_hiddenBaseNames :: [String]
+
+    -- |
+    -- The __obligatory__ field 'projectFileName', containing
+    -- the name used for the project file (a file housed
+    -- directly under the base of each Discipline Directory
+    -- containing all the files that should be considered when
+    -- trying to build a files in that Discipline Directory.).
+  , set_projectFileName :: String
   } deriving Show
 
 -- |
@@ -643,9 +723,9 @@ getConf mbPath =
       do
         configPath <- CTE.ExceptT path
 
-        -- Attempts to produce a 'ConfigurableFields' value
+        -- Attempts to produce a 'ConfigFileFields' value
         -- from what was read in the configuration file.
-        settings <-
+        configFileSettings <-
           CTE.ExceptT $
             UIOE.handleIO
               ( \e ->
@@ -664,7 +744,7 @@ getConf mbPath =
                   ++ show e
               )
               (
-                flip DIC.parseIniFile configParser .
+                flip DIC.parseIniFile configFileParser .
                   DT.pack <$> readFile configPath
               )
 
@@ -678,22 +758,51 @@ getConf mbPath =
                   "Failure to canonicalize the path of the "
                   ++ "proof system root provided in the "
                   ++ "configuration file: "
-                  ++ set_psRootPath settings
+                  ++ set_psRootPath configFileSettings
               )
               (
                 Right <$>
                   UIOD.canonicalizePath (
-                      set_psRootPath settings)
+                      set_psRootPath configFileSettings)
+              )
+
+        -- Now that we know the canonicalized root of the proof
+        -- system, we can look for the "structure.ini" file
+        -- that should be located directly under the root.
+        let
+          structFilePath :: FilePath
+          structFilePath = root SF.</> "structure.ini"
+        structureFileSettings <-
+          CTE.ExceptT $
+            UIOE.handleIO
+              ( \e ->
+                -- This is the error message shown if we
+                -- cannot read the file for some reason.
+                -- The most likely reason being insufficient
+                -- permissions or system resources, since the
+                -- previous step would take care of checking
+                -- its existence.
+                return $ Left $
+                  "Failure to read the contents of the "
+                  ++ "structure configuration file: "
+                  ++ structFilePath 
+                  ++ "\n"
+                  ++ "  Exception: "
+                  ++ show e
+              )
+              (
+                flip DIC.parseIniFile structureFileParser .
+                  DT.pack <$> readFile structFilePath
               )
 
         -- The optional fields.
         let
           compCmd :: Maybe String
-          compCmd = set_compilationCommand settings
+          compCmd = set_compilationCommand configFileSettings
           makeCmd :: Maybe String
-          makeCmd = set_makefileBuildCommand settings
+          makeCmd = set_makefileBuildCommand configFileSettings
           coqbin :: Maybe FilePath
-          coqbin = set_coqbinPath settings
+          coqbin = set_coqbinPath configFileSettings
 
         -- Finally, we return the default configuration
         -- value, with the modified fields. In the case
@@ -701,7 +810,9 @@ getConf mbPath =
         -- were actually found (so their are not 'Nothing').
         return
           defaultConfig
-          { _psRootPath = root
+          {
+          -- First, the config file fields.
+            _psRootPath = root
           , _compilationCommand =
               case compCmd of
                 Nothing -> compilationCommand defaultConfig
@@ -714,14 +825,24 @@ getConf mbPath =
               case coqbin of
                 Nothing -> coqbinPath defaultConfig
                 Just p -> p
+
+          -- And here, the structure file fields.
+          , _disciplineDirectories =
+              set_disciplineDirectories structureFileSettings
+          , _hiddenPaths =
+              set_hiddenPaths structureFileSettings
+          , _hiddenBaseNames =
+              set_hiddenBaseNames structureFileSettings
+          , _projectFileName =
+              set_projectFileName structureFileSettings
           }
 
 -- |
 -- This function is the parser for the configuration file.
 -- It will attempt to read the configuration file. To call
 -- on this parser, use the 'DIC.parseIniFile' function.
-configParser :: DIC.IniParser ConfigurableFields
-configParser =
+configFileParser :: DIC.IniParser ConfigFileFields
+configFileParser =
   do
     -- Get the root. It is in the section
     -- @STRUCTURAL SETTINGS@ under the field @rootLocation@.
@@ -750,18 +871,114 @@ configParser =
       DIC.section (DT.pack "COMMANDS") $
         DIC.fieldMb (DT.pack "coqbinLocation")
 
-    -- We now collect everything in a 'ConfigurableFields'
+    -- We now collect everything in a 'ConfigFileFields'
     -- value. However, notice that all those fields are of
     -- 'Text' type. We use 'DT.unpack' to make them 'String'
     -- (which is equal to 'FilePath') instead.
-    return
-      ConfigurableFields
+    pure
+      ConfigFileFields
       { set_psRootPath = DT.unpack root
       , set_compilationCommand = DT.unpack <$> compCmd
       , set_makefileBuildCommand = DT.unpack <$> makeCmd
       , set_docBuildCommand = DT.unpack <$> docCmd
       , set_coqbinPath = DT.unpack <$> coqbin
       }
+
+-- |
+-- This is the parser for the structure file.
+-- Its goal is to read the information contained in the
+-- structure file, which should be a file called @structure.ini@
+-- placed directly under the root of the proof system (the location
+-- to the root will be extracted from the configuration file during
+-- run time by the 'configFileParser'.
+structureFileParser :: DIC.IniParser StructureFileFields
+structureFileParser = do
+  -- Gets a list of the base names of all Discipline
+  -- Directories. This is a comma-separated list.
+  ddBaseNames <-
+    DIC.section (DT.pack "GENERAL SETTINGS") $
+    DIC.fieldOf
+      (DT.pack "disciplineDirectories")
+      (DIC.listWithSeparator (DT.pack ",") DIC.string)
+
+  -- We can use the 'traverse' function, which is the
+  -- Applicative generalization of mapM, to obtain a
+  -- parser of lists of DisciplineDirectory values
+  -- using the discDirParser function.
+  dds <- traverse discDirParser ddBaseNames
+
+  -- Gets the list of hidden paths. This is also a
+  -- comma-separated list.
+  hidPaths <-
+    DIC.section (DT.pack "GENERAL SETTINGS") $
+    DIC.fieldOf
+      (DT.pack "hiddenPaths")
+      (DIC.listWithSeparator (DT.pack ",") DIC.string)
+
+  -- Gets the list of hidden base names. This is also a
+  -- comma-separated list.
+  hidBaseNames <-
+    DIC.section (DT.pack "GENERAL SETTINGS") $
+    DIC.fieldOf
+      (DT.pack "hiddenBaseNames")
+      (DIC.listWithSeparator (DT.pack ",") DIC.string)
+
+  -- Gets the name of the project file. This is a simple
+  -- String value.
+  -- Notice that the DIC.field function produces a
+  -- (contextualized) Text value, so we need to unpack
+  -- it later.
+  projFileName <-
+    DIC.section (DT.pack "GENERAL SETTINGS") $
+      DIC.field (DT.pack "projectFileName")
+
+  -- We now combine everything in our StructureFileFields
+  -- value (in the applicative context).
+  pure
+    StructureFileFields
+    { set_disciplineDirectories = dds
+    , set_hiddenPaths = hidPaths
+    , set_hiddenBaseNames = hidBaseNames
+    , set_projectFileName = DT.unpack projFileName
+    }
+    
+
+-- |
+-- This is a parser which attempts to parse Discipline Directory
+-- information from the @structure.ini@ file for the Discipline
+-- Directory whose base name is given as argument.
+discDirParser
+  :: String
+  -- ^
+  -- The base name of the Discipline Directory.
+  -> DIC.IniParser DisciplineDirectory
+discDirParser dd = do
+  -- The section corresponding to the Discipline Directory
+  -- is named "Discipline Directory: BASE NAME", where
+  -- "BASE NAME" is the base name of the Discipline Directory
+  -- whose information we want to parse (given as argument).
+  --
+  -- Currently, the only information we have is a list of
+  -- the accessible Discipline Directories. In the INI file,
+  -- we will use a comma-separated list.
+  accDiscDirs <- 
+      DIC.section (DT.pack $ "Discipline Directory: " ++ dd) $
+      DIC.fieldOf
+        (DT.pack "accessibleDiscDirs")
+        (DIC.listWithSeparator (DT.pack ",") DIC.string)
+  pure
+    DisciplineDirectory
+    { discDirBaseName = dd
+    , accessibleDiscDirs =
+      -- If no directory is given in the ini file, then
+      -- 'accDiscDirs' is NOT an empty list, as we expect,
+      -- but the empty String "". If this is the case, then
+      -- we actually fix this with the test below.
+      if (accDiscDirs == [""])
+      then []
+      else accDiscDirs
+    }
+
 
 -- |
 -- This is an auxiliar function to the main, exported,
