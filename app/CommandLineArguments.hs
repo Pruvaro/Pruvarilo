@@ -18,8 +18,7 @@ module CommandLineArguments
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
 import Config
-  ( ProofSystemConfig
-  , getConf
+  ( getConf
   )
 
 import Modes

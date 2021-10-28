@@ -61,10 +61,6 @@ import qualified Data.String as DS
   ( fromString
   )
 
-import Prettyprinter
-  ( (<+>)
-  )
-
 import qualified Prettyprinter as P
   ( Doc
   , annotate

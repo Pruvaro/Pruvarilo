@@ -181,7 +181,7 @@ adjustOutputFormat
   => [a]
   -> (a -> f [(b, c)])
   -> f [ ( b , [(a, c)] ) ]
-adjustOutputFormat [] f = pure []
+adjustOutputFormat [] _ = pure []
 adjustOutputFormat (x : xs) g = 
   addMap
   <$> ((makeMap x) <$> (g x))
@@ -194,7 +194,7 @@ adjustOutputFormat (x : xs) g =
       => a
       -> [(b, c)]
       -> [ ( b , [(a, c)] ) ]
-    makeMap a [] = []
+    makeMap _ [] = []
     makeMap a ( (b, c) : ys ) =
       addSingleEntry (b, [(a, c)]) $ makeMap a ys
         

@@ -54,16 +54,11 @@ import qualified Data.String as DS
   ( fromString
   )
 
-import Prettyprinter
-  ( (<+>)
-  )
-
 import qualified Prettyprinter as P
   ( Doc
   , annotate
   , indent
   , line
-  , vsep
   )
 
 import qualified Prettyprinter.Render.Terminal as PRT
@@ -237,7 +232,7 @@ execRemoveMode cmo _ =
         <> P.line
       putPrevList xs
     -- No deletion case.
-    putPrevList ((dd, Right []) : xs) = putPrevList xs
+    putPrevList ((_, Right []) : xs) = putPrevList xs
     -- Discipline Directory with deletions case.
     putPrevList ((dd, Right l) : xs) = do
       -- putStrLn $ "This is my list: " ++ show l
@@ -269,10 +264,10 @@ execRemoveMode cmo _ =
       putPrevList xs
     -- If no exception was found, but the deletion list
     -- is empty, then ignore that directory.
-    putResList ((dd, Right []) : xs) = putResList xs
+    putResList ((_, Right []) : xs) = putResList xs
     -- If no exception was found, but there were deletions
     -- in that file, print "Success".
-    putResList ((dd, Right l) : xs) = do
+    putResList ((dd, Right _) : xs) = do
       PRT.putDoc $ P.indent 2 $
         (P.annotate PRT.bold $ DS.fromString dd)
         <> DS.fromString ": "

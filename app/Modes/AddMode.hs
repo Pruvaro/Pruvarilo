@@ -71,10 +71,6 @@ import qualified Data.String as DS
   ( fromString
   )
 
-import Prettyprinter
-  ( (<+>)
-  )
-
 import qualified Prettyprinter as P
   ( Doc
   , annotate
@@ -90,15 +86,7 @@ import qualified Prettyprinter.Render.Terminal as PRT
     )
   , bold
   , color
-  , hPutDoc
   , putDoc
-  )
-
-import qualified System.Exit as SE
-  ( ExitCode
-    ( ExitSuccess
-    , ExitFailure
-    )
   )
 
 import qualified System.FilePath as SF
@@ -107,10 +95,6 @@ import qualified System.FilePath as SF
 
 import qualified UnliftIO.Exception as UIOE
   ( IOException
-  )
-
-import qualified UnliftIO.IO as UIOIO
-  ( stderr
   )
 
 
@@ -435,8 +419,8 @@ execAddMode cmo _ =
       -> (Either UIOE.IOException Bool -> Bool)
       -> String
       -> [(PathInfo, Either UIOE.IOException Bool)]
-    matchDiscDirAndDecStatus [] pred dd = []
-    matchDiscDirAndDecStatus ((i, ddsts) : xs) pred dd =
+    matchDiscDirAndDecStatus [] _ _ = []
+    matchDiscDirAndDecStatus ((i, ddsts) : xs) predicate dd =
       let
         -- Gets of the elements in the list of
         -- Discipline Directory-Declaration satus pairs
@@ -448,12 +432,12 @@ execAddMode cmo _ =
         matches =
           map (\(_, sts) -> (i, sts)) $
             filter 
-              (\(dd', sts) -> (dd == dd') && (pred sts))
+              (\(dd', sts) -> (dd == dd') && (predicate sts))
               ddsts
       in
         -- Prepend the matches to the list, and recurse
         -- onwards to the rest of the 'xs'.
-        matches ++ matchDiscDirAndDecStatus xs pred dd
+        matches ++ matchDiscDirAndDecStatus xs predicate dd
 
     -- And this function (basically) maps 
     -- 'matchDiscDirAndDecStatus' over all Discipline 
@@ -474,14 +458,14 @@ execAddMode cmo _ =
             , [(PathInfo, Either UIOE.IOException Bool)]
             )
           ]
-    matchDecStatus xs pred = do
+    matchDecStatus xs predicate = do
       -- Gets the list of all Discipline Directory base names.
       discdirs <- CTR.asks $ 
         (map discDirBaseName) . disciplineDirectories
       -- Maps 'matchDiscDirAndDecStatus', but retaining the
       -- information of the Discipline Directory.
       return $ map 
-        (\dd -> (dd, matchDiscDirAndDecStatus xs pred dd)) 
+        (\dd -> (dd, matchDiscDirAndDecStatus xs predicate dd)) 
         discdirs
 
     -- This function is used to produce a list of 
@@ -502,7 +486,7 @@ execAddMode cmo _ =
     -- Base recursion case.
     ppDiscardExtra [] = return []
     -- Empty declaration list.
-    ppDiscardExtra ((_, []) : xs) = return []
+    ppDiscardExtra ((_, []) : _) = return []
     -- Non-empty declaration list.
     ppDiscardExtra ((dd, l) : xs) = do
       -- Get the pretty-printing 'Doc' of the declaration list.

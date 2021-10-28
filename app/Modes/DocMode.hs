@@ -61,8 +61,7 @@ import qualified Data.String as DS
   )
 
 import qualified Prettyprinter as P
-  ( Doc
-  , annotate
+  ( annotate
   , indent
   , line
   )
@@ -86,10 +85,6 @@ import qualified System.Exit as SE
 
 import qualified System.FilePath as SF
   ( (</>)
-  )
-
-import qualified UnliftIO.Exception as UIOE
-  ( IOException
   )
 
 import qualified UnliftIO.IO as UIOIO
