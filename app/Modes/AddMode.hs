@@ -42,6 +42,7 @@ import PathInfo
   ( PathInfo
   , validName
   , pathInfos
+  , noNameConflict
   )
 
 import ProjectFileManagement
@@ -115,13 +116,13 @@ execAddMode cmo _ =
     -- or with a Discipline Directory, we need to get a path.
     path :: Monad m => CTR.ReaderT ProofSystemConfig m String
     path =
-      case (cmo_actionLocation cmo) of
+      case cmo_actionLocation cmo of
         ActLocPath p -> return p
         ActLocDiscDir dd ->
           -- If we are instead given a Discipline Directory,
           -- we can get its path by prepending the path
           -- to the root of the proof system.
-          (SF.</> dd) <$> CTR.asks psRootPath 
+          (SF.</> dd) <$> CTR.asks psRootPath
   in do
     -- Recurse into the specified path, and get all
     -- proof files in that path.
@@ -168,7 +169,7 @@ execAddMode cmo _ =
     -- >   , [(PathInfo, Either UIOE.IOException Bool)]
     -- >   )
     -- > ]
-    -- that is, a list indexed firstly by the Discipline
+    -- that is, a list indexed first by the Discipline
     -- Directory base name (the 'String' element) containing
     -- the list of all 'PathInfo's such that their declaration
     -- status (which comes package with the 'PathInfo')
@@ -180,19 +181,14 @@ execAddMode cmo _ =
 
     -- And similarly, one for the ones that are pending
     -- addition.
-    infoDecPending <- matchDecStatus infoDec
-      ( \eit ->
-        case eit of
-          Right False -> True
-          _           -> False
-      )
+    infoDecPending <- matchDecStatus infoDec (== Right False)
 
     -- Now, we can print the files we intend on adding,
     docToBeAdded <- ppDiscardExtra infoDecPending
-    CTC.lift $ PRT.putDoc $ 
+    CTC.lift $ PRT.putDoc $
       DS.fromString "Files whose declaration will be added:"
       <> P.line
-      <> (P.indent 2 $ P.vsep docToBeAdded)
+      <> P.indent 2 (P.vsep docToBeAdded)
       <> P.line
 
     -- We must also show the files which failed verification.
@@ -202,17 +198,16 @@ execAddMode cmo _ =
     CM.unless (all (null . snd) infoDecFails) $ do
       docFailVerif <- ppDisplayExceptions infoDecFails
       CTC.lift $ PRT.putDoc $
-        ( DS.fromString 
+        DS.fromString
           "Files whose declaration verification failed:"
-        )
         <> P.line
-        <> (P.indent 2 $ P.vsep docFailVerif)
+        <> P.indent 2 (P.vsep docFailVerif)
         <> P.line
 
     -- Now that we showed the user what will be done, we
     -- can ask for their input.
     proceedAdd <- CTC.lift $ promptYes (cmo_assumeYes cmo) $
-      DS.fromString "Do you want to continue? [Y/n] "
+                  DS.fromString "Do you want to continue? [Y/n] "
 
     CM.when proceedAdd $ do
       -- Specifically for the @add@ mode, we might be adding
@@ -225,6 +220,12 @@ execAddMode cmo _ =
         invNameInfos :: [PathInfo]
         invNameInfos = filter (not . validName) infosNotFullyDec
 
+        -- Also gets a list of the 'PathInfo's we want to add
+        -- which have case-insensitive name clashes.
+        caseNameClashInfos :: [PathInfo]
+        caseNameClashInfos =
+          filter (not . noNameConflict) infosNotFullyDec
+
       -- Unless the list of invalid names is empty, we alert
       -- the user.
       CM.unless (null invNameInfos) $ do
@@ -233,22 +234,33 @@ execAddMode cmo _ =
         CTC.lift $ PRT.putDoc $
           P.line
           <> P.line
-          <>
-          ( DS.fromString
-            "These files have non-conforming names:"
-          )
+          <> DS.fromString
+             "These files have non-conforming names:"
           <> P.line
-          <> (P.indent 2 $ docInvNameInfos)
+          <> P.indent 2 docInvNameInfos
           <> P.line
 
+      -- Unless the list of case-insensitive name clashes is
+      -- empty, we allert the user.
+      CM.unless (null caseNameClashInfos) $ do
+        docCaseNameClashInfos <-
+          ppPathsFromPathInfo caseNameClashInfos $
+            Just PRT.Green
+        CTC.lift $ PRT.putDoc $
+          DS.fromString
+            "These files have case-insensitive name conflicts:"
+          <> P.line
+          <> P.indent 2 docCaseNameClashInfos
+          <> P.line
+        
       -- Gets user input if we should proceed anyway, even
       -- with invalid names.
       -- Notice that this is not asked if there are no
       -- invalid names.
       proceedInvNames <-
-        if (null invNameInfos)
+        if null invNameInfos
         then return True
-        else 
+        else
           CTC.lift $ promptYes (cmo_assumeYes cmo) $
             DS.fromString "Proceed anyway? [Y/n] "
 
@@ -338,10 +350,10 @@ execAddMode cmo _ =
           removeRightFalse :: (a, Either b Bool) -> Bool
           removeRightFalse (_, Right False) = False
           removeRightFalse _ = True
-        
-        addRes <- adjustOutputFormat infosNotFullyDec 
-          (\i -> filter removeRightFalse <$> addDeclarations i)
-    
+
+        addRes <- adjustOutputFormat infosNotFullyDec
+          (fmap (filter removeRightFalse) . addDeclarations)
+
         -- We get the 'Doc' used to print 'addRes'.
         -- > ppAddRes :: [Doc AnsiStyle]
         ppAddRes <- ppDisplayRes addRes
@@ -350,7 +362,7 @@ execAddMode cmo _ =
           <> P.line
           <> DS.fromString "Project file editing results:"
           <> P.line
-          <> (P.indent 2 $ P.vsep ppAddRes)
+          <> P.indent 2 (P.vsep ppAddRes)
           <> P.line
           <> P.line
 
@@ -371,7 +383,7 @@ execAddMode cmo _ =
     -- pairs Discipline Directory - Declaration verification.
     onlyNotFullyDeclared
       :: [PathInfo]
-      -> CTR.ReaderT 
+      -> CTR.ReaderT
           ProofSystemConfig
           IO
           [ ( PathInfo
@@ -431,8 +443,8 @@ execAddMode cmo _ =
         matches :: [(PathInfo, Either UIOE.IOException Bool)]
         matches =
           map (\(_, sts) -> (i, sts)) $
-            filter 
-              (\(dd', sts) -> (dd == dd') && (predicate sts))
+            filter
+              (\(dd', sts) -> (dd == dd') && predicate sts)
               ddsts
       in
         -- Prepend the matches to the list, and recurse
@@ -451,21 +463,21 @@ execAddMode cmo _ =
            )
          ]
       -> (Either UIOE.IOException Bool -> Bool)
-      -> CTR.ReaderT 
-          ProofSystemConfig 
-          m 
+      -> CTR.ReaderT
+          ProofSystemConfig
+          m
           [ ( String
             , [(PathInfo, Either UIOE.IOException Bool)]
             )
           ]
     matchDecStatus xs predicate = do
       -- Gets the list of all Discipline Directory base names.
-      discdirs <- CTR.asks $ 
-        (map discDirBaseName) . disciplineDirectories
+      discdirs <- CTR.asks $
+        map discDirBaseName . disciplineDirectories
       -- Maps 'matchDiscDirAndDecStatus', but retaining the
       -- information of the Discipline Directory.
-      return $ map 
-        (\dd -> (dd, matchDiscDirAndDecStatus xs predicate dd)) 
+      return $ map
+        (\dd -> (dd, matchDiscDirAndDecStatus xs predicate dd))
         discdirs
 
     -- This function is used to produce a list of 
@@ -493,7 +505,7 @@ execAddMode cmo _ =
       ppl <- ppPathsAndExtra l (const mempty) (Just PRT.Green)
       -- Recurse.
       (:)
-        ( (P.annotate PRT.bold $ DS.fromString dd)
+        ( P.annotate PRT.bold (DS.fromString dd)
           <> P.line
           <> P.indent 2 ppl
         )
@@ -513,27 +525,28 @@ execAddMode cmo _ =
     ppDisplayExceptions ((dd, l) : xs) = do
       let
         -- The pretty-printing function for the "extras".
-        extraDoc 
-          :: Show a 
-          => Either a b 
+        extraDoc
+          :: Show a
+          => Either a b
           -> P.Doc PRT.AnsiStyle
         extraDoc (Right _) = mempty
         extraDoc (Left e)  =
-          P.line 
-          <> 
-          ( P.indent 2 $ DS.fromString $ 
-            "Exception: " ++ show e
-          ) 
+          P.line
+          <>
+          P.indent 2
+            (DS.fromString $
+              "Exception: " ++ show e
+            )
       -- Get the pretty-printing 'Doc' of the declaration list.
       ppl <- ppPathsAndExtra l extraDoc (Just PRT.Green)
       -- Recurse.
       (:)
-        ( (P.annotate PRT.bold $ DS.fromString dd)
+        ( P.annotate PRT.bold (DS.fromString dd)
           <> P.line
           <> P.indent 2 ppl
         )
         <$> ppDisplayExceptions xs
-    
+
     -- Similar to 'ppDiscardExtra' and 'ppDisplayExceptions',
     -- but this one will show "Success" to successful builds,
     -- and will show the exception for failed ones.
@@ -558,25 +571,25 @@ execAddMode cmo _ =
           :: Show a
           => Either a Bool
           -> P.Doc PRT.AnsiStyle
-        extraDoc (Left e) = 
+        extraDoc (Left e) =
           DS.fromString $ ": Failure (Exception): " ++ show e
         extraDoc (Right True) =
           DS.fromString ": "
-          <> 
-          ( P.annotate (PRT.color PRT.Green) $ DS.fromString
-            "Success."
-          )
+          <>
+          P.annotate (PRT.color PRT.Green)
+            (DS.fromString "Success.")
         extraDoc (Right False) =
           DS.fromString ": "
-          <> 
-          ( P.annotate (PRT.color PRT.Green) $ DS.fromString
-            "Success (Unexpected result. Please report)."
-          )
+          <>
+          P.annotate (PRT.color PRT.Green)
+            ( DS.fromString
+              "Success (Unexpected result. Please report)."
+            )
       -- Get the pretty-printing 'Doc' of the declaration list.
       ppl <- ppPathsAndExtra l extraDoc (Just PRT.Green)
       -- Recurse.
       (:)
-        ( (P.annotate PRT.bold $ DS.fromString dd)
+        ( P.annotate PRT.bold (DS.fromString dd)
           <> P.line
           <> P.indent 2 ppl
         )
