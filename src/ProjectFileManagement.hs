@@ -97,10 +97,10 @@ import qualified System.FilePath as SF
   )
 
 import qualified UnliftIO.Directory as UIOD
-  ( doesFileExist
+  ( copyFile
+  , doesFileExist
   , getTemporaryDirectory
   , removeFile
-  , renameFile
   )
 
 import qualified UnliftIO.Exception as UIOE
@@ -1227,11 +1227,34 @@ removeLine predicate discDir =
                     -- Here, we just delete the 
                     -- temporary file.
                     UIOD.removeFile tempFilePath
-                    :: IO ()
-                  _ ->
+                  _ -> do
                     -- Here, we must __replace__ the files.
-                    UIOD.renameFile tempFilePath projFilePath
-                    :: IO ()
+                    -- Notice that, instead of using
+                    -- UIOD.renameFile, which functions similarly
+                    -- to Unix's mv command, we will do a two-step
+                    -- process, by first copying (which atomically
+                    -- replaces the target file) and then deleting
+                    -- the original file in the temporary directory.
+                    -- The reason for this is that, internally,
+                    -- renameFile employs the GNU C Library's
+                    -- rename function. This function produces an
+                    -- exception when the source directory (which,
+                    -- here, will generally be in /tmp) is in
+                    -- a different filesystem than the target
+                    -- directory (which again, here is very likely
+                    -- somewhere inside the user's home directory).
+                    --
+                    -- Although it might seem a bit esotheric,
+                    -- it is actually very common for the home
+                    -- directory to be in a different filesystem
+                    -- to other directories in the root. It is
+                    -- what happens when using ecryptfs, for
+                    -- instance, to encrypt the home directory,
+                    -- that being a one-click option while
+                    -- installing mainstream GNU/Linux distros
+                    -- such as Linux Mint and Ubuntu.
+                    UIOD.copyFile tempFilePath projFilePath
+                    UIOD.removeFile tempFilePath
               )
               -- Either way, we just return back whatever the
               -- list of matches.
