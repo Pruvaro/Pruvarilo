@@ -137,9 +137,10 @@ execAddMode cmo _ =
     --
     -- The value
     -- > infoDec
-    -- > :: ( PathInfo
-    -- >    , [(String, Either UIOE.IOException Bool)]
-    -- >    )
+    -- > :: [ ( PathInfo
+    -- >      , [(String, Either UIOE.IOException Bool)]
+    -- >      )
+    -- >    ]
     -- is the list of those 'PathInfo's still pending
     -- operation, but also incremented with their declaration
     -- condition (the list of places they should be declared,
@@ -498,7 +499,7 @@ execAddMode cmo _ =
     -- Base recursion case.
     ppDiscardExtra [] = return []
     -- Empty declaration list.
-    ppDiscardExtra ((_, []) : _) = return []
+    ppDiscardExtra ((_, []) : xs) = ppDiscardExtra xs
     -- Non-empty declaration list.
     ppDiscardExtra ((dd, l) : xs) = do
       -- Get the pretty-printing 'Doc' of the declaration list.
